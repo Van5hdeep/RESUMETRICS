@@ -44,6 +44,19 @@ function cleanTextList(value, fieldName, { maxItems = 24, maxLength = 1_000 } = 
   return value.map((item, index) => cleanText(item, `${fieldName}[${index}]`, maxLength))
 }
 
+function cleanLink(value, fieldName) {
+  const link = asObject(value)
+  if (!link) throw new ResumeEditPlanError(`${fieldName} must be a link object.`)
+  const url = cleanText(link.url, `${fieldName}.url`, 500)
+  const label = cleanText(link.label ?? url, `${fieldName}.label`, 160)
+  return { label, url }
+}
+
+function cleanLinks(value, fieldName) {
+  if (!Array.isArray(value) || value.length > 12) throw new ResumeEditPlanError(`${fieldName} must contain at most 12 links.`)
+  return value.map((item, index) => cleanLink(item, `${fieldName}[${index}]`))
+}
+
 function cleanIndex(value, section, resumeData) {
   if (!Number.isInteger(value) || value < 0) throw new ResumeEditPlanError('itemIndex must be a non-negative integer.')
   const items = resumeData?.[section]
@@ -107,6 +120,14 @@ function normalizeOperation(value, resumeData) {
     return { type: operation.type, target: operation.target, values: cleanTextList(operation.values, 'values', { maxItems: 30, maxLength: 300 }) }
   }
 
+  if (operation.type === 'set_link') {
+    return { type: operation.type, linkIndex: cleanIndex(operation.linkIndex, 'links', resumeData), value: cleanLink(operation.value, 'value') }
+  }
+
+  if (operation.type === 'append_link') return { type: operation.type, value: cleanLink(operation.value, 'value') }
+
+  if (operation.type === 'replace_links') return { type: operation.type, values: cleanLinks(operation.values, 'values') }
+
   if (operation.type === 'set_footer') {
     return { type: operation.type, value: cleanText(operation.value, 'value', 240) }
   }
@@ -156,6 +177,7 @@ export const resumeEditPlanCapabilities = {
   bulletSections: [...bulletSections],
   detailSections: [...detailSections],
   listTargets: [...listTargets],
+  linkOperations: ['set_link', 'append_link', 'replace_links'],
   skillCategories: [...skillCategories],
   fontFamilies: [...fontFamilies],
   fontSizes: [...fontSizes]

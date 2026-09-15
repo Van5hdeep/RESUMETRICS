@@ -39,14 +39,18 @@ router.post('/extract', async (request, response) => {
 })
 
 router.post('/analyze', async (request, response) => {
-  const { resumeData, jobDescription } = request.body ?? {}
+  const { resumeData, jobDescription, evidenceScope } = request.body ?? {}
   if (!resumeData || typeof resumeData !== 'object') return response.status(400).json({ ok: false, error: 'resumeData must be provided.' })
   if (typeof jobDescription !== 'string' || !jobDescription.trim()) return response.status(400).json({ ok: false, error: 'jobDescription must be a non-empty string.' })
   if (jobDescription.length > MAX_JOB_DESCRIPTION_LENGTH) return response.status(400).json({ ok: false, error: `jobDescription must be ${MAX_JOB_DESCRIPTION_LENGTH.toLocaleString()} characters or fewer.` })
 
   const normalizedResumeData = normalizeResumeData(resumeData)
   try {
-    const analysis = await analyzeResumeAgainstRole({ resumeData: normalizedResumeData, jobDescription: jobDescription.trim() })
+    const analysis = await analyzeResumeAgainstRole({
+      resumeData: normalizedResumeData,
+      jobDescription: jobDescription.trim(),
+      includeProfileSignals: evidenceScope === 'linkedin-profile'
+    })
     return response.json({ ok: true, analysis, analysisMethod: 'ai' })
   } catch (error) {
     console.error('Role alignment analysis failed:', error)

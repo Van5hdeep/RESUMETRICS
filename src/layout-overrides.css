@@ -21,3 +21,28 @@
 @media (max-width: 560px) { .appearance-row { align-items: flex-start; flex-direction: column; }.appearance-toggle { width: 100%; }.appearance-toggle button { padding: 0 5px; font-size: 9px; } }
 @media (max-width: 1000px) { .workspace-grid { grid-template-columns: 86px minmax(0, 1fr); column-gap: 8px; margin-left: -6px; }.right-rail { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }.lower-grid { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .header-actions { justify-content: flex-start; }.evidence-review-button { margin-left: 0; }.header-actions .evidence-review-button { width: 100%; justify-content: center; }.workspace-grid { grid-template-columns: 1fr; margin-left: 0; }.editor-toolbar { flex-direction: row; width: 100%; justify-content: flex-start; padding: 8px 10px; overflow-x: auto; }.toolbar-label { margin: 0 6px 0 0; }.tool-group, .mode-tools, .formatting-tools { display: flex; flex-direction: row; flex: 0 0 auto; }.formatting-tools .font-family-tool, .formatting-tools .font-size-tool { width: 76px; }.tool-divider { width: 1px; height: 28px; flex: 0 0 auto; }.align-tools { flex-direction: row; align-items: center; }.align-buttons { width: 104px; }.selection-hint { display: none; }.right-rail { grid-template-columns: 1fr; } }
+
+/* Keep the editor rail readable without letting it consume the resume canvas.
+   This is intentionally between the original icon strip and the earlier
+   oversized inspector: labels remain visible while the document gets back
+   roughly 60px of horizontal workspace on typical laptops. */
+@media (min-width: 1001px) {
+  .workspace-grid { grid-template-columns: minmax(176px, 190px) minmax(0, 1fr) minmax(292px, .44fr); column-gap: 10px; }
+  .editor-toolbar { padding: 12px 10px; gap: 9px; }
+  .tool { height: 35px; padding-inline: 5px; border-radius: 8px; font-size: 12px; }
+  .font-size-tool, .font-family-tool { height: 44px; border-radius: 9px; }
+  .font-size-tool { font-size: 14px; }
+  .font-picker-trigger { min-height: 42px; padding-inline: 9px; font-size: 12px; }
+  .color-tool { height: 35px; }
+  .color-tool span { width: 20px; height: 20px; }
+  .align-buttons { gap: 4px; }
+  .align-buttons .tool { font-size: 18px; }
+  .selection-hint { font-size: 10px; }
+}
+
+@media (max-width: 1000px) and (min-width: 701px) {
+  .workspace-grid { grid-template-columns: minmax(168px, 182px) minmax(0, 1fr); column-gap: 9px; }
+  .editor-toolbar { padding: 11px 9px; gap: 8px; }
+  .tool { font-size: 11px; }
+  .font-size-tool, .font-family-tool { height: 42px; }
+}

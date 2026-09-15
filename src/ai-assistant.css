@@ -186,6 +186,13 @@
   line-height: 1.45;
 }
 
+.editor-selection-panel { display: grid; gap: 6px; width: 100%; margin-top: 2px; padding-top: 11px; border-top: 1px solid #e2deef; color: #5b6680; }
+.editor-selection-panel strong { color: #34415b; font-size: .72rem; letter-spacing: .055em; text-transform: uppercase; }
+.editor-selection-panel small, .editor-selection-panel span { overflow: hidden; color: #77839a; font-size: .68rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.editor-selection-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.editor-selection-actions .text-button { padding: 3px 0; font-size: .7rem; }
+.editor-selection-actions .text-button + .text-button::before { margin-right: 5px; color: #c3c9d4; content: '·'; }
+
 [data-resolved-theme="dark"] .app-shell .ai-edit-minimal { border-color: #303a52; background: #1a2336; }
 [data-resolved-theme="dark"] .app-shell .ai-edit-composer { border-color: #3b4761; background: #121a2b; }
 [data-resolved-theme="dark"] .app-shell .ai-edit-composer textarea { color: #edf1ff; }

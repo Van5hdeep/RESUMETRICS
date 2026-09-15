@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
@@ -16,16 +16,22 @@ import './interaction-overrides.css'
 import './import-preview.css'
 import './resume-flow.css'
 import './github-evidence.css'
+import './linkedin-evidence.css'
 import './ai-assistant.css'
 import logo from './assets/resumetrics-logo.png'
 import ResumeStartOptions from './components/ResumeStartOptions.jsx'
 import ResumeTemplateSelector from './components/ResumeTemplateSelector.jsx'
 import ResumeExtractionReview from './components/ResumeExtractionReview.jsx'
 import GitHubEvidenceReview from './components/GitHubEvidenceReview.jsx'
+import LinkedInImportDialog from './components/LinkedInImportDialog.jsx'
+import LinkedInEvidenceReview from './components/LinkedInEvidenceReview.jsx'
 import AIAssistantEditor from './components/AIAssistantEditor.jsx'
-import { resumeTemplates } from './config/resumeTemplates.js'
+import FontPicker from './components/FontPicker.jsx'
+import { createResumePresentation, resumeTemplates } from './config/resumeTemplates.js'
 import { createBlankResumeData } from './data/resumeData.js'
 import { applyResumeEditPlan } from './utils/applyResumeEditPlan.js'
+import { applyResumeEditingOperations, getPathValue } from './editor/resumeEditingEngine.js'
+import { buildResumeElementRegistry, ensureResumeElementIds } from './editor/resumeElementRegistry.js'
 import { extractResumeDocument } from './utils/extractResumeDocument.js'
 import useAIAnimationState, { EXCLAIM_MS, MIN_PROCESSING_MS, MIN_THINKING_MS, SUCCESS_MS } from './hooks/useAIAnimationState.js'
 import { buildSkillAwareRoleAnalysis } from '../shared/roleAnalysis.js'
@@ -57,8 +63,10 @@ const fontFamilies = [
 const safeFileName = value => (value || 'untitled-resume').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'untitled-resume'
 const githubResumeSnapshotKey = 'resumetrics:pending-github-evidence-resume'
 const githubResumeSnapshotMaxAge = 15 * 60 * 1000
-const githubComparisonRequestKey = 'resumetrics:github-evidence-comparison'
-const githubComparisonRequestMaxAge = 30 * 60 * 1000
+const evidenceComparisonRequestKey = 'resumetrics:evidence-comparison'
+const evidenceComparisonRequestMaxAge = 30 * 60 * 1000
+const linkedinProfileStorageKey = 'resumetrics:linkedin-profile'
+const linkedinProfileStorageMaxAge = 24 * 60 * 60 * 1000
 
 function getResumeEvidenceSkills(resumeData) {
   if (!resumeData) return []
@@ -70,13 +78,120 @@ function getResumeEvidenceSkills(resumeData) {
   return [...new Map(values.filter(value => typeof value === 'string' && value.trim()).map(value => [value.trim().toLocaleLowerCase(), value.trim()])).values()].slice(0, 24)
 }
 
-function readQueuedGitHubComparison() {
+function buildLinkedInResumeComparison(resumeData, linkedinData) {
+  const resumeSkills = getResumeEvidenceSkills(resumeData)
+  const linkedinSkills = getResumeEvidenceSkills(linkedinData)
+  const linkedinKeys = new Set(linkedinSkills.map(skill => skill.toLocaleLowerCase()))
+  const overlap = resumeSkills.filter(skill => linkedinKeys.has(skill.toLocaleLowerCase()))
+  const resumeOnly = resumeSkills.filter(skill => !linkedinKeys.has(skill.toLocaleLowerCase()))
+  const score = resumeSkills.length ? Math.round((overlap.length / resumeSkills.length) * 100) : 0
+  return {
+    score,
+    summary: resumeSkills.length
+      ? `${overlap.length} of ${resumeSkills.length} resume skills also appear in the imported LinkedIn profile.`
+      : 'Create or import a resume with extracted skills before comparing it with LinkedIn.',
+    strengths: overlap,
+    missingSkills: resumeOnly,
+    comparedResumeSkills: resumeSkills,
+    comparedJobSkills: [],
+    matchedSkills: overlap,
+    profileOverlap: overlap,
+    profileOnlySkills: linkedinSkills.filter(skill => !new Set(resumeSkills.map(item => item.toLocaleLowerCase())).has(skill.toLocaleLowerCase())),
+    resumeOnlySkills: resumeOnly,
+    profileOverlapScore: score,
+    analysisMethod: 'resume-overlap'
+  }
+}
+
+const cleanManualValue = value => String(value ?? '').replace(/\u00a0/g, ' ').replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n').trim()
+const splitManualList = value => cleanManualValue(value).split(/[·,\n]/).map(item => item.trim()).filter(Boolean)
+
+function updateManualResumeData(resumeData, path, value) {
+  if (!resumeData || !path) return resumeData
+  const next = JSON.parse(JSON.stringify(resumeData))
+  const text = cleanManualValue(value)
+  const parts = path.split('.')
+
+  if (['fullName', 'headline', 'email', 'phone', 'location', 'summary'].includes(path)) {
+    next[path] = text
+    return next
+  }
+  if (path === 'skills') {
+    const previousCategories = Object.entries(next.skills ?? {})
+    const categoryForSkill = new Map(previousCategories.flatMap(([category, skills]) => (skills ?? []).map(skill => [String(skill).toLocaleLowerCase(), category])))
+    const values = splitManualList(text)
+    next.skills = Object.fromEntries(previousCategories.map(([category]) => [category, []]))
+    values.forEach(skill => {
+      const category = categoryForSkill.get(skill.toLocaleLowerCase()) || 'other'
+      next.skills[category] ||= []
+      if (!next.skills[category].some(item => item.toLocaleLowerCase() === skill.toLocaleLowerCase())) next.skills[category].push(skill)
+    })
+    return next
+  }
+  if (path === 'languages') {
+    next.languages = splitManualList(text)
+    return next
+  }
+  if (parts[0] === 'links' && Number.isInteger(Number(parts[1]))) {
+    const index = Number(parts[1])
+    next.links[index] = { ...(next.links[index] ?? {}), url: text, label: next.links[index]?.label || text }
+    return next
+  }
+  if (['certifications', 'achievements'].includes(parts[0]) && Number.isInteger(Number(parts[1]))) {
+    next[parts[0]][Number(parts[1])] = text
+    return next
+  }
+
+  const [section, indexText, field, itemIndexText] = parts
+  const index = Number(indexText)
+  if (!['experience', 'projects', 'education'].includes(section) || !Number.isInteger(index) || !next[section]?.[index]) return next
+  const item = next[section][index]
+  if (field === 'techStack') {
+    item.techStack = splitManualList(text)
+    return next
+  }
+  if (field === 'links') {
+    const itemIndex = Number(itemIndexText)
+    if (!Number.isInteger(itemIndex)) return next
+    item.links ||= []
+    item.links[itemIndex] = text
+    return next
+  }
+  if (field === 'bullets' || field === 'details') {
+    const itemIndex = Number(itemIndexText)
+    if (!Number.isInteger(itemIndex)) return next
+    item[field] ||= []
+    item[field][itemIndex] = text
+    return next
+  }
+  if (field) item[field] = text
+  return next
+}
+
+function readLinkedInProfile() {
   try {
-    const request = JSON.parse(sessionStorage.getItem(githubComparisonRequestKey) || 'null')
-    if (request?.resumeData && Date.now() - request.savedAt <= githubComparisonRequestMaxAge) return request
-    sessionStorage.removeItem(githubComparisonRequestKey)
+    const profile = JSON.parse(sessionStorage.getItem(linkedinProfileStorageKey) || 'null')
+    if (profile?.resumeData && Date.now() - profile.savedAt <= linkedinProfileStorageMaxAge) return profile
+    sessionStorage.removeItem(linkedinProfileStorageKey)
   } catch {
-    sessionStorage.removeItem(githubComparisonRequestKey)
+    sessionStorage.removeItem(linkedinProfileStorageKey)
+  }
+  return null
+}
+
+function storeLinkedInProfile(profile) {
+  try { sessionStorage.setItem(linkedinProfileStorageKey, JSON.stringify(profile)) } catch {
+    // The comparison still works for this open workspace if browser storage is unavailable.
+  }
+}
+
+function readQueuedEvidenceComparison() {
+  try {
+    const request = JSON.parse(sessionStorage.getItem(evidenceComparisonRequestKey) || 'null')
+    if (request?.sources && Date.now() - request.savedAt <= evidenceComparisonRequestMaxAge) return request
+    sessionStorage.removeItem(evidenceComparisonRequestKey)
+  } catch {
+    sessionStorage.removeItem(evidenceComparisonRequestKey)
   }
   return null
 }
@@ -537,7 +652,10 @@ function MainPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
   const uploadInputRef = useRef(null)
+  const photoInputRef = useRef(null)
+  const linkedinUploadInputRef = useRef(null)
   const editorRef = useRef(null)
+  const resumeDataRef = useRef(null)
   const selectionRef = useRef(null)
   const analysisRequestRef = useRef(0)
   const assistantInputRef = useRef(null)
@@ -545,15 +663,22 @@ function MainPage() {
   const [analysis, setAnalysis] = useState(null)
   const [analysisPreview, setAnalysisPreview] = useState(null)
   const [analysisLoading, setAnalysisLoading] = useState(false)
-  const [connected, setConnected] = useState([])
   const [githubConnection, setGithubConnection] = useState({ loading: true, connected: false })
   const [githubConnecting, setGithubConnecting] = useState(false)
   const [githubConnectionError, setGithubConnectionError] = useState('')
   const [githubConnectionNotice, setGithubConnectionNotice] = useState('')
   const [githubCompareError, setGithubCompareError] = useState('')
+  const [linkedinProfile, setLinkedinProfile] = useState(readLinkedInProfile)
+  const [linkedinImportOpen, setLinkedinImportOpen] = useState(false)
+  const [linkedinImportStatus, setLinkedinImportStatus] = useState('idle')
+  const [linkedinImportError, setLinkedinImportError] = useState('')
+  const [linkedinImportNotice, setLinkedinImportNotice] = useState('')
   const [workspaceMode, setWorkspaceMode] = useState('initial')
   const [resumeData, setResumeData] = useState(null)
   const [selectedTemplateId, setSelectedTemplateId] = useState(null)
+  const [resumePresentation, setResumePresentation] = useState(() => createResumePresentation())
+  const [selectedResumeElement, setSelectedResumeElement] = useState(null)
+  const [editHistory, setEditHistory] = useState([])
   const [uploadedFileName, setUploadedFileName] = useState('')
   const [parseMetadata, setParseMetadata] = useState(null)
   const [workspaceError, setWorkspaceError] = useState('')
@@ -573,6 +698,8 @@ function MainPage() {
   const [aiTestLoading, setAiTestLoading] = useState(false)
   const { taskState: assistantAnimationState, beginRun: beginAssistantRun, isCurrentRun: isCurrentAssistantRun, setRunState: setAssistantRunState, finishRun: finishAssistantRun, cancelRun: cancelAssistantRun, wait: waitForAssistantAnimation } = useAIAnimationState()
   const selectedTemplate = resumeTemplates.find(template => template.id === selectedTemplateId)
+  const resumeElementRegistry = useMemo(() => buildResumeElementRegistry(resumeData ?? {}, resumePresentation), [resumeData, resumePresentation])
+  const selectedElementDefinition = selectedResumeElement ? resumeElementRegistry.get(selectedResumeElement.id) : null
   const TemplateComponent = selectedTemplate?.component
   const isEditorReady = workspaceMode === 'editor-ready' && Boolean(TemplateComponent) && Boolean(resumeData)
   const resumeStyle = {
@@ -581,9 +708,15 @@ function MainPage() {
     ...(useGlobalTextColor ? { '--resume-text-color': fontColor } : {})
   }
   const resumeEvidenceSkills = getResumeEvidenceSkills(resumeData)
-  const hasConnectedEvidenceSource = githubConnection.connected || connected.length > 0
+  const linkedinEvidenceSkills = getResumeEvidenceSkills(linkedinProfile?.resumeData)
+  const hasLinkedInProfile = Boolean(linkedinProfile?.resumeData)
+  const hasConnectedEvidenceSource = githubConnection.connected || hasLinkedInProfile
   const hasImportedResumeSkills = Boolean(uploadedFileName) && resumeEvidenceSkills.length > 0
   const hasWorkspaceResumeSkills = workspaceMode === 'editor-ready' && resumeEvidenceSkills.length > 0
+
+  useEffect(() => {
+    resumeDataRef.current = resumeData
+  }, [resumeData])
 
   const showAssistantError = message => {
     setAssistantFeedback({ tone: 'error', text: message })
@@ -635,12 +768,17 @@ function MainPage() {
       try {
         const snapshot = JSON.parse(sessionStorage.getItem(githubResumeSnapshotKey) || 'null')
         if (snapshot?.resumeData && Date.now() - snapshot.savedAt <= githubResumeSnapshotMaxAge) {
-          setResumeData(snapshot.resumeData)
+          setResumeData(ensureResumeElementIds(snapshot.resumeData))
           setResumeName(snapshot.resumeData.fullName || 'Untitled resume')
           setSelectedTemplateId(snapshot.selectedTemplateId || null)
+          setResumePresentation(snapshot.resumePresentation || createResumePresentation(snapshot.selectedTemplateId || null))
           setUploadedFileName(snapshot.uploadedFileName || '')
           setParseMetadata(snapshot.parseMetadata || null)
           setWorkspaceMode(snapshot.workspaceMode || 'extraction-review')
+          if (snapshot.linkedinProfile?.resumeData) {
+            setLinkedinProfile(snapshot.linkedinProfile)
+            storeLinkedInProfile(snapshot.linkedinProfile)
+          }
         }
       } catch {
         // The connection itself should still succeed if browser storage is unavailable.
@@ -733,6 +871,7 @@ function MainPage() {
     setWorkspaceMode('initial')
     setResumeData(null)
     setSelectedTemplateId(null)
+    setResumePresentation(createResumePresentation())
     setUploadedFileName('')
     setParseMetadata(null)
     setWorkspaceError('')
@@ -838,7 +977,7 @@ function MainPage() {
       }
       const payload = await response.json()
       if (!response.ok || !payload.ok || !payload.resumeData) throw new Error(payload.error || 'Could not extract this resume. Try again.')
-      setResumeData(payload.resumeData)
+      setResumeData(ensureResumeElementIds(payload.resumeData))
       setParseMetadata(payload.metadata ?? extractedDocument.metadata)
       setResumeName(payload.resumeData.fullName || 'Untitled resume')
       setWorkspaceMode('extraction-review')
@@ -852,9 +991,10 @@ function MainPage() {
   }
 
   const startCreate = () => {
-    setResumeData(createBlankResumeData())
+    setResumeData(ensureResumeElementIds(createBlankResumeData()))
     setUploadedFileName('')
     setSelectedTemplateId(null)
+    setResumePresentation(createResumePresentation())
     setWorkspaceError('')
     setGithubCompareError('')
     setResumeName('Untitled resume')
@@ -863,12 +1003,67 @@ function MainPage() {
 
   const chooseTemplate = templateId => {
     setSelectedTemplateId(templateId)
-    setResumeData(current => current || createBlankResumeData())
+    setResumePresentation(current => ({ ...current, template: templateId }))
+    setResumeData(current => current || ensureResumeElementIds(createBlankResumeData()))
     setWorkspaceMode('editor-ready')
     requestAnimationFrame(() => editorRef.current?.focus())
   }
 
-  const toggleSource = source => setConnected(current => current.includes(source) ? current.filter(item => item !== source) : [...current, source])
+  const openLinkedInImport = () => {
+    setLinkedinImportError('')
+    setLinkedinImportStatus('idle')
+    setLinkedinImportOpen(true)
+  }
+
+  const closeLinkedInImport = () => {
+    if (linkedinImportStatus === 'reading' || linkedinImportStatus === 'extracting') return
+    setLinkedinImportOpen(false)
+    setLinkedinImportStatus('idle')
+  }
+
+  const handleLinkedInUpload = async event => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setLinkedinImportError('')
+    setLinkedinImportNotice('')
+    setGithubCompareError('')
+    setLinkedinImportStatus('reading')
+    try {
+      const extractedDocument = await extractResumeDocument(file)
+      if (!extractedDocument.rawText) throw new Error('Could not read this file. Please upload a text-based LinkedIn PDF or DOCX export.')
+      setLinkedinImportStatus('extracting')
+      const response = await fetch('/api/resume/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ document: { pages: extractedDocument.pages, metadata: { ...extractedDocument.metadata, sourceType: 'linkedin' } } })
+      })
+      const isJson = response.headers.get('content-type')?.includes('application/json')
+      if (!isJson) throw new Error('The AI server is not running. Start the app with npm run dev:all, then try again.')
+      const payload = await response.json()
+      if (!response.ok || !payload.ok || !payload.resumeData) throw new Error(payload.error || 'Could not extract this LinkedIn profile. Try again.')
+
+      const profile = {
+        savedAt: Date.now(),
+        resumeData: payload.resumeData,
+        uploadedFileName: file.name,
+        parseMetadata: payload.metadata ?? extractedDocument.metadata
+      }
+      setLinkedinProfile(profile)
+      storeLinkedInProfile(profile)
+      setLinkedinImportNotice(`Info acquired from ${file.name}. ${getResumeEvidenceSkills(payload.resumeData).length} skills, ${payload.resumeData.experience.length} roles, and ${payload.resumeData.education.length} education entries are ready to compare.`)
+      setLinkedinImportOpen(false)
+      setLinkedinImportStatus('idle')
+    } catch (error) {
+      const message = error instanceof TypeError && /fetch/i.test(error.message)
+        ? 'The AI server is not running. Start the app with npm run dev:all, then try again.'
+        : error.message || 'Could not import this LinkedIn profile. Try a text-based PDF or DOCX export.'
+      setLinkedinImportError(message)
+      setLinkedinImportStatus('error')
+    }
+  }
+
   const startGitHubConnection = async () => {
     if (!currentUser || githubConnecting || githubConnection.connected) return
     setGithubConnecting(true)
@@ -881,8 +1076,10 @@ function MainPage() {
           resumeData,
           workspaceMode,
           selectedTemplateId,
+          resumePresentation,
           uploadedFileName,
-          parseMetadata
+          parseMetadata,
+          linkedinProfile
         }))
       }
       const idToken = await currentUser.getIdToken()
@@ -898,26 +1095,32 @@ function MainPage() {
 
   const compareEvidence = () => {
     setGithubCompareError('')
-    if (!hasConnectedEvidenceSource) {
-      setGithubCompareError('Connect at least one evidence source before comparing skills.')
+    const hasResumeForEvidence = Boolean(resumeData && (hasImportedResumeSkills || hasWorkspaceResumeSkills))
+    const githubReady = githubConnection.connected && hasResumeForEvidence
+    const linkedinReady = hasLinkedInProfile
+
+    if (!githubReady && !linkedinReady) {
+      setGithubCompareError(githubConnection.connected || linkedinReady
+        ? 'Create or import a resume with extracted skills before comparing evidence sources.'
+        : 'Connect GitHub or upload a LinkedIn profile before comparing.')
       return
     }
-    if (hasImportedResumeSkills) {
-      if (!githubConnection.connected) {
-        setGithubCompareError('GitHub is the only evidence source ready for comparison right now. Connect GitHub to continue.')
-        return
-      }
-    } else if (!hasWorkspaceResumeSkills) {
-      setGithubCompareError(uploadedFileName
-        ? 'Resume skills are still being extracted. Wait for extraction to finish before comparing evidence.'
-        : 'Create a resume in the workspace and add skills before comparing it against connected evidence.')
-      return
-    } else if (!githubConnection.connected) {
-      setGithubCompareError('GitHub is the only evidence source ready for comparison right now. Connect GitHub to continue.')
+    if (linkedinReady && !hasResumeForEvidence) {
+      setGithubCompareError('Import or create a resume with extracted skills before comparing LinkedIn information.')
       return
     }
-    sessionStorage.setItem(githubComparisonRequestKey, JSON.stringify({ savedAt: Date.now(), resumeData }))
-    navigate('/evaluation?compare=github')
+    const request = {
+      savedAt: Date.now(),
+      sources: { github: githubReady, linkedin: linkedinReady },
+      resumeData: (githubReady || linkedinReady) ? resumeData : null,
+      linkedinProfile: linkedinReady ? linkedinProfile : null,
+      jobDescription: linkedinReady ? description.trim() : ''
+    }
+    try { sessionStorage.setItem(evidenceComparisonRequestKey, JSON.stringify(request)) } catch {
+      setGithubCompareError('Your browser could not prepare the comparison. Please try again.')
+      return
+    }
+    navigate('/evaluation?compare=evidence')
   }
 
   const analyse = async () => {
@@ -991,8 +1194,60 @@ function MainPage() {
   const selectSize = value => { const numericSize = Number(value); setFontSize(numericSize); applyFormat('fontSize', numericSize) }
   const focusTextTool = () => { setActiveTool('text'); requestAnimationFrame(() => editorRef.current?.focus()) }
   const editorReady = editor => { editorRef.current = editor }
+  const handleManualResumeEdit = ({ path, value }) => {
+    if (path === 'footerText') {
+      setFooterText(cleanManualValue(value))
+      return
+    }
+    const current = resumeDataRef.current ?? resumeData
+    const next = updateManualResumeData(current, path, value)
+    if (next === current) return
+    resumeDataRef.current = next
+    setResumeData(next)
+    if (path === 'fullName') setResumeName(next.fullName || 'Untitled resume')
+  }
+
+  const applyPresentationOperations = operations => {
+    try {
+      setEditHistory(history => [...history, { content: resumeDataRef.current ?? resumeData, presentation: resumePresentation, timestamp: Date.now() }].slice(-30))
+      setResumePresentation(current => applyResumeEditingOperations({ content: resumeDataRef.current ?? resumeData, presentation: current }, operations).presentation)
+    } catch (error) {
+      showAssistantError(error.message || 'That presentation change could not be applied.')
+    }
+  }
+
+  const autoFixTemplatePresentation = (_templateId, changes) => {
+    if (!changes || !Object.keys(changes).length) return
+    applyPresentationOperations([{ type: 'set_theme', changes }])
+  }
+
+  const handlePhotoUpload = async event => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) return showAssistantError('Please choose an image file for the profile photo.')
+    const source = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(new Error('The image could not be read.'))
+      reader.readAsDataURL(file)
+    }).catch(error => { showAssistantError(error.message); return null })
+    if (!source) return
+    applyPresentationOperations([{ type: 'set_image', changes: { source, visible: true, width: 68, height: 68, objectFit: 'cover', shape: 'circle' } }])
+    setSelectedResumeElement({ id: 'resume.header.photo', path: 'presentation.photo' })
+  }
+
+  const undoLastEdit = () => {
+    const last = editHistory.at(-1)
+    if (!last) return
+    setResumeData(last.content)
+    resumeDataRef.current = last.content
+    setResumePresentation(last.presentation)
+    setEditHistory(history => history.slice(0, -1))
+  }
 
   const getAssistantWorkspaceContext = () => {
+    const currentResumeData = resumeDataRef.current ?? resumeData
     const selection = window.getSelection()
     const selectedText = selection?.toString().trim().slice(0, 600) || ''
     const anchor = selection?.anchorNode
@@ -1011,7 +1266,7 @@ function MainPage() {
     else if (activeSection === 'skills') activeField = 'skills'
 
     return {
-      resumeData,
+      resumeData: currentResumeData,
       template: selectedTemplate ? { id: selectedTemplate.id, name: selectedTemplate.name, category: selectedTemplate.category, atsFriendly: selectedTemplate.atsFriendly } : null,
       style: {
         fontFamily: fontFamilies.find(([, value]) => value === fontFamily)?.[0] || fontFamily,
@@ -1021,6 +1276,11 @@ function MainPage() {
         appearance: document.documentElement.dataset.appearance || 'system',
         resolvedTheme: document.documentElement.dataset.resolvedTheme || 'light'
       },
+      resumePresentation: {
+        ...selectedTemplate?.defaultTheme,
+        ...resumePresentation,
+        template: selectedTemplateId
+      },
       sourceDocument: parseMetadata ? {
         fileName: parseMetadata.fileName || uploadedFileName,
         fileType: parseMetadata.fileType || '',
@@ -1029,18 +1289,26 @@ function MainPage() {
         isCompleteParse: parseMetadata.isCompleteParse === true
       } : null,
       editor: { activeTool, activeSection, activeField, activeItemIndex: activeItemIndex >= 0 ? activeItemIndex : null, selectedText },
+      selectedElement: selectedElementDefinition ? {
+        ...selectedElementDefinition,
+        value: selectedElementDefinition.path ? getPathValue({ content: currentResumeData, presentation: resumePresentation }, selectedElementDefinition.path) : null,
+        editableProperties: selectedElementDefinition.capabilities
+      } : null,
+      availableElementOperations: ['set_content', 'set_style', 'set_theme', 'set_image', 'set_image_style', 'reorder_sections', 'change_template'],
       sectionOrder: ['summary', 'experience', 'projects', 'education', 'skills', 'certifications', 'achievements'],
       itemReferences: {
-        experience: (resumeData?.experience ?? []).map((item, index) => ({ id: `experience-${index}`, index, label: [item.role, item.company].filter(Boolean).join(' at ') })),
-        projects: (resumeData?.projects ?? []).map((item, index) => ({ id: `project-${index}`, index, label: item.name || `Project ${index + 1}` })),
-        education: (resumeData?.education ?? []).map((item, index) => ({ id: `education-${index}`, index, label: [item.degree, item.institution].filter(Boolean).join(' at ') }))
-      }
+        experience: (currentResumeData?.experience ?? []).map((item, index) => ({ id: `experience-${index}`, index, label: [item.role, item.company].filter(Boolean).join(' at ') })),
+        projects: (currentResumeData?.projects ?? []).map((item, index) => ({ id: `project-${index}`, index, label: item.name || `Project ${index + 1}` })),
+        education: (currentResumeData?.education ?? []).map((item, index) => ({ id: `education-${index}`, index, label: [item.degree, item.institution].filter(Boolean).join(' at ') }))
+      },
+      editorSnapshot: editorRef.current?.innerText?.slice(0, 18_000) || ''
     }
   }
 
   const askAssistant = async event => {
     event.preventDefault()
     const message = assistantInput.trim()
+    const currentResumeData = resumeDataRef.current ?? resumeData
     if (aiTestLoading) return
     if (!message) {
       showAssistantError('Describe a change before sending it to AI.')
@@ -1049,7 +1317,7 @@ function MainPage() {
       requestAnimationFrame(() => assistantInputRef.current?.focus())
       return
     }
-    if (!isEditorReady || !resumeData) {
+    if (!isEditorReady || !currentResumeData) {
       showAssistantError('Open or create a resume first, then I can apply changes to it.')
       const runId = beginAssistantRun('exclaim')
       waitForAssistantAnimation(EXCLAIM_MS).then(() => finishAssistantRun(runId))
@@ -1092,9 +1360,10 @@ function MainPage() {
 
       setAssistantRunState(runId, 'processing')
       setAssistantFeedback({ tone: 'info', text: 'Applying changes…' })
-      const result = applyResumeEditPlan({ resumeData, plan: payload.plan })
-      setResumeData(result.resumeData)
-      if (result.resumeData.fullName !== resumeData.fullName) setResumeName(result.resumeData.fullName || 'Untitled resume')
+      const result = applyResumeEditPlan({ resumeData: currentResumeData, plan: payload.plan })
+      setResumeData(ensureResumeElementIds(result.resumeData))
+      resumeDataRef.current = result.resumeData
+      if (result.resumeData.fullName !== currentResumeData.fullName) setResumeName(result.resumeData.fullName || 'Untitled resume')
       if (result.styleUpdates.fontFamily !== undefined) setFontFamily(result.styleUpdates.fontFamily)
       if (result.styleUpdates.fontSize !== undefined) {
         setGlobalFontSize(result.styleUpdates.fontSize)
@@ -1133,6 +1402,7 @@ function MainPage() {
     'template-selection': 'Choose a template',
     error: 'Import resume skills'
   }[workspaceMode] || resumeName
+  const qualityResumeData = resumeData?.fullName || resumeData?.summary || resumeData?.experience?.length || resumeData?.projects?.length || resumeData?.education?.length ? resumeData : null
 
   return <Shell>
     <header className="page-header"><div><span className="eyebrow">RESUME WORKSPACE</span></div><div className="header-actions"><div className="draft-actions"><button className="quiet-button" disabled={!isEditorReady || exportLoading} onClick={() => exportDraft('PRINT')}><Icon name="download" size={15} />{exportLoading ? 'Preparing print…' : 'Export draft'}</button><button className="danger-button" disabled={workspaceMode === 'initial'} onClick={deleteDraft}><Icon name="trash" size={15} />Delete draft</button></div></div></header>
@@ -1144,23 +1414,37 @@ function MainPage() {
         <div className="tool-group formatting-tools" aria-label="Text formatting">
           <button className="tool icon-tool" disabled={activeTool !== 'select'} onMouseDown={event => event.preventDefault()} onClick={() => applyFormat('bold')} aria-label="Bold" title="Bold"><strong>B</strong></button><button className="tool icon-tool italic-tool" disabled={activeTool !== 'select'} onMouseDown={event => event.preventDefault()} onClick={() => applyFormat('italic')} aria-label="Italic" title="Italic"><em>I</em></button><button className="tool icon-tool underline-tool" disabled={activeTool !== 'select'} onMouseDown={event => event.preventDefault()} onClick={() => applyFormat('underline')} aria-label="Underline" title="Underline"><u>U</u></button>
           <label className={`color-tool ${activeTool !== 'select' ? 'disabled' : ''}`} title="Text colour"><input type="color" value={fontColor} disabled={activeTool !== 'select'} onChange={event => { setFontColor(event.target.value); applyFormat('foreColor', event.target.value) }} aria-label="Text colour" /><span style={{ backgroundColor: fontColor }} /></label>
+          <label className="color-tool template-accent-tool" title="Template accent colour"><input type="color" value={resumePresentation.accentColor || selectedTemplate?.defaultTheme?.accentColor || '#243b5a'} disabled={activeTool !== 'select'} onChange={event => applyPresentationOperations([{ type: 'set_theme', changes: { accentColor: event.target.value } }])} aria-label="Template accent colour" /><span style={{ backgroundColor: resumePresentation.accentColor || selectedTemplate?.defaultTheme?.accentColor || '#243b5a' }} /></label>
           <label className={`font-size-tool ${activeTool !== 'select' ? 'disabled' : ''}`}><span>{fontSize}</span><select value={fontSize} disabled={activeTool !== 'select'} onChange={event => selectSize(event.target.value)} aria-label="Font size"><option value="12">12</option><option value="14">14</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="24">24</option></select><small>px</small></label>
-          <label className={`font-family-tool ${activeTool !== 'select' ? 'disabled' : ''}`}><select value={fontFamily} style={{ fontFamily }} disabled={activeTool !== 'select'} onChange={event => selectFont(event.target.value)} aria-label="Font family">{fontFamilies.map(([name, value]) => <option value={value} style={{ fontFamily: value }} key={name}>{name}</option>)}</select></label>
+          <div className={`font-family-tool ${activeTool !== 'select' ? 'disabled' : ''}`}><FontPicker value={fontFamily} disabled={activeTool !== 'select'} onChange={selectFont} /></div>
         </div>
         <span className="tool-divider" />
         <div className="tool-group align-tools" aria-label="Text alignment"><span className="toolbar-sublabel">ALIGN</span><div className="align-buttons"><button className="tool icon-tool" disabled={activeTool !== 'select'} onMouseDown={event => event.preventDefault()} onClick={() => applyFormat('justifyLeft')} aria-label="Align left" title="Align left"><AlignIcon alignment="left" /></button><button className="tool icon-tool" disabled={activeTool !== 'select'} onMouseDown={event => event.preventDefault()} onClick={() => applyFormat('justifyCenter')} aria-label="Align center" title="Align center"><AlignIcon alignment="center" /></button><button className="tool icon-tool" disabled={activeTool !== 'select'} onMouseDown={event => event.preventDefault()} onClick={() => applyFormat('justifyRight')} aria-label="Align right" title="Align right"><AlignIcon alignment="right" /></button></div></div>
-        <span className="selection-hint">{hasSelection ? 'Text selected' : 'Select text to format'}</span>
+        <span className="selection-hint">{hasSelection ? 'Text selected' : 'Edit any text; changes save when you click away'}</span>
+        <div className="editor-selection-panel">
+          <strong>{selectedElementDefinition?.role?.replaceAll('_', ' ') || 'Resume appearance'}</strong>
+          <small>{selectedElementDefinition ? `Selected: ${selectedElementDefinition.id}` : 'Click a highlighted resume field to select it.'}</small>
+          {selectedElementDefinition && <span>{selectedElementDefinition.capabilities.join(' · ')}</span>}
+          <div className="editor-selection-actions">
+            <button type="button" className="text-button" onClick={() => photoInputRef.current?.click()}>{resumePresentation.photo?.source ? 'Replace photo' : 'Add photo'}</button>
+            {resumePresentation.photo?.source && <button type="button" className="text-button" onClick={() => applyPresentationOperations([{ type: 'set_image_style', changes: { shape: resumePresentation.photo?.shape === 'circle' ? 'square' : 'circle' } }])}>{resumePresentation.photo?.shape === 'circle' ? 'Square photo' : 'Round photo'}</button>}
+            {resumePresentation.photo?.source && <button type="button" className="text-button" onClick={() => applyPresentationOperations([{ type: 'set_image', changes: { visible: false, source: '' } }])}>Remove photo</button>}
+            <button type="button" className="text-button" disabled={!editHistory.length} onClick={undoLastEdit}>Undo edit</button>
+          </div>
+        </div>
       </aside>}
       <section className="resume-canvas panel">
         <div className="canvas-top"><div className="resume-title-wrap">{isEditorReady && editingName ? <input className="resume-title-input" autoFocus value={resumeName} onChange={event => setResumeName(event.target.value)} onBlur={() => { setResumeName(resumeName.trim() || 'Untitled resume'); setEditingName(false) }} onKeyDown={event => event.key === 'Enter' && event.currentTarget.blur()} aria-label="Resume name" /> : isEditorReady ? <button className="resume-title-button" onClick={() => setEditingName(true)}>{resumeName}</button> : <strong>{canvasHeading}</strong>}</div><div className="canvas-actions">{isEditorReady && <button className="text-button" onClick={() => setWorkspaceMode('template-selection')}>Change template</button>}<span className="status-dot">{isEditorReady ? 'Editable draft' : workspaceMode === 'extracting' ? 'AI working' : 'Draft'}</span></div></div>
         <input ref={uploadInputRef} className="upload-input" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" onChange={handleUpload} />
+        <input ref={photoInputRef} className="upload-input" type="file" accept="image/*" onChange={handlePhotoUpload} />
+        <input ref={linkedinUploadInputRef} className="upload-input" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleLinkedInUpload} />
         {workspaceMode === 'initial' && <ResumeStartOptions onImport={() => uploadInputRef.current?.click()} onCreate={startCreate} />}
         {workspaceMode === 'importing' && <div className="flow-loading"><div className="flow-spinner" /><h2>Reading your resume…</h2><p>Preparing a separate copy for AI extraction.</p></div>}
         {workspaceMode === 'extracting' && <div className="flow-loading"><div className="flow-spinner" /><h2>Extracting resume details with AI…</h2><p>Identifying only the information present in your source file.</p></div>}
         {workspaceMode === 'extraction-review' && resumeData && <ResumeExtractionReview resumeData={resumeData} uploadedFileName={uploadedFileName} parseMetadata={parseMetadata} onContinue={() => setWorkspaceMode('template-selection')} onStartOver={resetWorkspace} />}
-        {workspaceMode === 'template-selection' && <ResumeTemplateSelector templates={resumeTemplates} resumeData={resumeData} selectedTemplateId={selectedTemplateId} onSelect={chooseTemplate} onBack={() => uploadedFileName ? setWorkspaceMode('extraction-review') : resetWorkspace()} isImported={Boolean(uploadedFileName)} />}
+        {workspaceMode === 'template-selection' && <ResumeTemplateSelector templates={resumeTemplates} editorStyle={resumeStyle} presentation={resumePresentation} currentResumeData={qualityResumeData} onAutoFix={autoFixTemplatePresentation} useGlobalTextColor={useGlobalTextColor} footerText={footerText} selectedTemplateId={selectedTemplateId} onSelect={chooseTemplate} onBack={() => uploadedFileName ? setWorkspaceMode('extraction-review') : resetWorkspace()} isImported={Boolean(uploadedFileName)} />}
         {workspaceMode === 'error' && <div className="flow-error"><h3>We could not import that resume.</h3><p>{workspaceError}</p><div className="state-actions"><button className="secondary-button" onClick={resetWorkspace}>Start over</button><button className="primary-button" onClick={() => uploadInputRef.current?.click()}>Try another file</button></div></div>}
-        {isEditorReady && <TemplateComponent resumeData={resumeData} editorRef={editorReady} editorStyle={resumeStyle} useGlobalTextColor={useGlobalTextColor} footerText={footerText} />}
+        {isEditorReady && <TemplateComponent resumeData={resumeData} editorRef={editorReady} editorStyle={resumeStyle} useGlobalTextColor={useGlobalTextColor} footerText={footerText} onManualEdit={handleManualResumeEdit} onElementSelect={setSelectedResumeElement} presentation={{ ...selectedTemplate?.defaultTheme, ...resumePresentation }} />}
       </section>
       <div className="right-rail">
         <aside className="analysis-panel panel">
@@ -1199,18 +1483,11 @@ function MainPage() {
         />
       </div>
     </div>
-    <section className="lower-grid"><div className="panel section-panel evidence-panel"><div className="evidence-panel-heading"><div><span className="eyebrow">EVIDENCE SOURCES</span><h2>Verify the work behind the words.</h2><p className="muted">Connect a source to surface credible proof for projects, skills, and outcomes.</p></div><button className="primary-button compare-evidence-button" type="button" disabled={!hasConnectedEvidenceSource} onClick={compareEvidence}>Compare</button></div><div className="sources">{['GitHub', 'LinkedIn', 'LeetCode'].map(source => {
-      const isGitHub = source === 'GitHub'
-      const sourceConnected = isGitHub ? githubConnection.connected : connected.includes(source)
-      const sourceDescription = isGitHub
-        ? githubConnection.loading
-          ? 'Checking connection…'
-          : githubConnection.connected
-            ? `Connected as @${githubConnection.githubLogin || 'GitHub user'}`
-            : githubConnection.message || githubConnectionError || 'Available to connect'
-        : connected.includes(source) ? 'Connected for review' : 'Available to connect'
-      return <div className="source" key={source}><div className="source-identity"><SourceIcon name={source} /><span><b>{source}</b><small className={isGitHub && githubConnectionError ? 'source-error' : ''}>{sourceDescription}</small></span></div><button className="text-button" disabled={isGitHub && (githubConnection.loading || githubConnecting || sourceConnected)} onClick={() => isGitHub ? startGitHubConnection() : toggleSource(source)}>{isGitHub && githubConnecting ? 'Connecting…' : sourceConnected ? 'Connected' : 'Connect'}</button></div>
-    })}</div>{githubConnectionNotice && <p className="source-notice" role="status">{githubConnectionNotice}</p>}{githubCompareError && <p className="source-error" role="alert">{githubCompareError}</p>}</div><GeneralSettingsPanel /></section>
+    <section className="lower-grid"><div className="panel section-panel evidence-panel"><div className="evidence-panel-heading"><div><span className="eyebrow">EVIDENCE SOURCES</span><h2>Verify the work behind the words.</h2><p className="muted">Connect GitHub or import a LinkedIn profile to surface credible proof for skills, experience, and education.</p></div><button className="primary-button compare-evidence-button" type="button" disabled={!hasConnectedEvidenceSource} onClick={compareEvidence}>Compare</button></div><div className="sources">
+      <div className="source"><div className="source-identity"><SourceIcon name="GitHub" /><span><b>GitHub</b><small className={githubConnectionError ? 'source-error' : ''}>{githubConnection.loading ? 'Checking connection…' : githubConnection.connected ? `Connected as @${githubConnection.githubLogin || 'GitHub user'}` : githubConnection.message || githubConnectionError || 'Available to connect'}</small></span></div><button className="text-button" disabled={githubConnection.loading || githubConnecting || githubConnection.connected} onClick={startGitHubConnection}>{githubConnecting ? 'Connecting…' : githubConnection.connected ? 'Connected' : 'Connect'}</button></div>
+      <div className="source linkedin-source"><div className="source-identity"><SourceIcon name="LinkedIn" /><span><b>LinkedIn</b><small>{hasLinkedInProfile ? `Info acquired · ${linkedinEvidenceSkills.length} skills, ${linkedinProfile.resumeData.experience.length} roles, ${linkedinProfile.resumeData.education.length} education entries` : 'Upload your LinkedIn PDF or DOCX export'}</small></span></div><button className="text-button" type="button" onClick={openLinkedInImport}>{hasLinkedInProfile ? 'Replace file' : 'Upload profile'}</button></div>
+    </div>{githubConnectionNotice && <p className="source-notice" role="status">{githubConnectionNotice}</p>}{linkedinImportNotice && <p className="source-notice" role="status">{linkedinImportNotice}</p>}{githubCompareError && <p className="source-error" role="alert">{githubCompareError}</p>}</div><GeneralSettingsPanel /></section>
+    {linkedinImportOpen && <LinkedInImportDialog status={linkedinImportStatus} error={linkedinImportError} onClose={closeLinkedInImport} onChooseFile={() => linkedinUploadInputRef.current?.click()} />}
   </Shell>
 }
 
@@ -1227,57 +1504,93 @@ function CreatePage() {
 function EvaluationPage() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
-  const [comparisonRequest] = useState(readQueuedGitHubComparison)
+  const [comparisonRequest] = useState(readQueuedEvidenceComparison)
   const [connection, setConnection] = useState({ loading: false, connected: false })
-  const [analysis, setAnalysis] = useState(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [githubAnalysis, setGithubAnalysis] = useState(null)
+  const [linkedinAnalysis, setLinkedinAnalysis] = useState(null)
+  const [githubLoading, setGithubLoading] = useState(false)
+  const [linkedinLoading, setLinkedinLoading] = useState(false)
+  const [githubError, setGithubError] = useState('')
+  const [linkedinError, setLinkedinError] = useState('')
+  const [activeStage, setActiveStage] = useState('')
   const comparisonStarted = useRef(false)
+  const sources = comparisonRequest?.sources ?? {}
   const resumeData = comparisonRequest?.resumeData ?? null
+  const linkedinProfile = sources.linkedin ? comparisonRequest?.linkedinProfile ?? null : null
+  const jobDescription = sources.linkedin ? comparisonRequest?.jobDescription ?? '' : ''
   const resumeSkills = getResumeEvidenceSkills(resumeData)
+  const linkedinSkills = getResumeEvidenceSkills(linkedinProfile?.resumeData)
+  const requestedStages = [
+    ...(sources.github ? [{ id: 'github', title: 'GitHub', detail: 'Repository evidence' }] : []),
+    ...(sources.linkedin ? [{ id: 'linkedin', title: 'LinkedIn', detail: 'Profile and job fit' }] : [])
+  ]
 
   const runComparison = useCallback(async () => {
-    if (!currentUser) return
-    if (!resumeData) {
-      setError('Return to the workspace, then choose Compare after creating or importing a resume.')
-      return
-    }
-    if (!resumeSkills.length) {
-      setError('This resume does not have extracted skills to compare yet. Return to the workspace and finish the resume first.')
-      return
+    setGithubAnalysis(null)
+    setLinkedinAnalysis(null)
+    setGithubError('')
+    setLinkedinError('')
+
+    if (sources.github) {
+      setActiveStage('github')
+      setGithubLoading(true)
+      if (!currentUser || !resumeData || !resumeSkills.length) {
+        setGithubError('Return to the workspace with a resume that has extracted skills before comparing GitHub evidence.')
+      } else {
+        try {
+          const idToken = await currentUser.getIdToken()
+          const statusResponse = await fetch('/api/github/status', { headers: { Authorization: `Bearer ${idToken}` } })
+          const statusPayload = await statusResponse.json().catch(() => null)
+          if (!statusResponse.ok || !statusPayload?.ok) throw new Error(statusPayload?.error || 'Could not verify the GitHub connection.')
+          setConnection({ loading: false, ...(statusPayload.connection ?? { connected: false }) })
+          if (!statusPayload.connection?.connected) throw new Error('Connect GitHub in the workspace before starting an evidence comparison.')
+
+          const response = await fetch('/api/github/evidence-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+            body: JSON.stringify({ resumeData })
+          })
+          const payload = await response.json().catch(() => null)
+          if (!response.ok || !payload?.ok || !payload.analysis) throw new Error(payload?.error || 'Could not analyse GitHub evidence.')
+          setGithubAnalysis(payload.analysis)
+        } catch (requestError) {
+          setGithubError(requestError instanceof TypeError
+            ? 'GitHub evidence service is not running. Start the app with npm run dev:all.'
+            : requestError.message || 'Could not analyse GitHub evidence.')
+        }
+      }
+      setGithubLoading(false)
     }
 
-    setIsLoading(true)
-    setError('')
-    setAnalysis(null)
-    try {
-      const idToken = await currentUser.getIdToken()
-      const statusResponse = await fetch('/api/github/status', { headers: { Authorization: `Bearer ${idToken}` } })
-      const statusPayload = await statusResponse.json().catch(() => null)
-      if (!statusResponse.ok || !statusPayload?.ok) throw new Error(statusPayload?.error || 'Could not verify the GitHub connection.')
-      setConnection({ loading: false, ...(statusPayload.connection ?? { connected: false }) })
-      if (!statusPayload.connection?.connected) throw new Error('Connect GitHub in the workspace before starting an evidence comparison.')
-
-      const response = await fetch('/api/github/evidence-analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({ resumeData })
-      })
-      const payload = await response.json().catch(() => null)
-      if (!response.ok || !payload?.ok || !payload.analysis) throw new Error(payload?.error || 'Could not analyse GitHub evidence.')
-      setAnalysis(payload.analysis)
-    } catch (requestError) {
-      setError(requestError instanceof TypeError
-        ? 'GitHub evidence service is not running. Start the app with npm run dev:all.'
-        : requestError.message || 'Could not analyse GitHub evidence.')
-    } finally {
-      setIsLoading(false)
+    if (sources.linkedin) {
+      setActiveStage('linkedin')
+      setLinkedinLoading(true)
+      if (!linkedinProfile?.resumeData || !resumeData || !resumeSkills.length) {
+        setLinkedinError('Return to the workspace with both an extracted resume and a LinkedIn profile before comparing.')
+      } else {
+        const profileComparison = buildLinkedInResumeComparison(resumeData, linkedinProfile.resumeData)
+        if (!jobDescription.trim()) setLinkedinAnalysis(profileComparison)
+        else try {
+          const response = await fetch('/api/resume/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resumeData, jobDescription, evidenceScope: 'linkedin-profile' })
+          })
+          const payload = await response.json().catch(() => null)
+          if (!response.ok || !payload?.ok || !payload.analysis) throw new Error(payload?.error || 'The role analysis service is temporarily unavailable.')
+          setLinkedinAnalysis({ ...profileComparison, ...payload.analysis, profileOverlap: profileComparison.profileOverlap, profileOnlySkills: profileComparison.profileOnlySkills, resumeOnlySkills: profileComparison.resumeOnlySkills, profileOverlapScore: profileComparison.profileOverlapScore, analysisMethod: payload.analysisMethod || 'ai' })
+        } catch {
+          setLinkedinAnalysis({ ...profileComparison, ...buildSkillAwareRoleAnalysis(resumeData, jobDescription), profileOverlap: profileComparison.profileOverlap, profileOnlySkills: profileComparison.profileOnlySkills, resumeOnlySkills: profileComparison.resumeOnlySkills, profileOverlapScore: profileComparison.profileOverlapScore, analysisMethod: 'browser-fallback' })
+        }
+      }
+      setLinkedinLoading(false)
     }
-  }, [currentUser, resumeData, resumeSkills.length])
+    setActiveStage('complete')
+  }, [currentUser, jobDescription, linkedinProfile, resumeData, resumeSkills.length, sources.github, sources.linkedin])
 
   useEffect(() => {
     const parameters = new URLSearchParams(window.location.search)
-    if (parameters.get('compare') !== 'github' || comparisonStarted.current) return
+    if (parameters.get('compare') !== 'evidence' || comparisonStarted.current) return
     comparisonStarted.current = true
     navigate('/evaluation', { replace: true })
     runComparison()
@@ -1289,10 +1602,17 @@ function EvaluationPage() {
       <button className="quiet-button" type="button" onClick={() => navigate('/workspace')}>Back to workspace</button>
     </header>
     <section className="evaluation-grid">
-      <div className="panel section-panel"><h2>Comparison scope</h2><div className="readiness"><strong>{resumeSkills.length || '—'}</strong><span>{resumeSkills.length ? `Extracted resume skills queued for GitHub verification${connection.connected ? ` with @${connection.githubLogin || 'GitHub'}` : ''}.` : 'Use Compare from the workspace to bring your resume here.'}</span></div></div>
-      <div className="panel section-panel"><h2>What we assess</h2><ul><li>Skills supported by repositories, languages, and project files</li><li>Evidence that can be verified from accessible GitHub metadata</li><li>Gaps between the resume and the connected work</li></ul></div>
+      <div className="panel section-panel"><h2>Comparison scope</h2><div className="readiness"><strong>{sources.linkedin ? linkedinSkills.length : resumeSkills.length || '—'}</strong><span>{sources.linkedin ? `LinkedIn is being compared with the extracted resume${jobDescription.trim() ? ' and the selected job description' : ' only'}${sources.github ? ' after GitHub repository evidence.' : '.'}` : resumeSkills.length ? `Extracted resume skills queued for GitHub verification${connection.connected ? ` with @${connection.githubLogin || 'GitHub'}` : ''}.` : 'Use Compare from the workspace to bring evidence here.'}</span></div></div>
+      <div className="panel section-panel"><h2>What we assess</h2><ul>{sources.github && <li>Skills supported by accessible repositories, languages, and project files</li>}{sources.linkedin && <li>LinkedIn skills, work history, education, and certifications against the resume{jobDescription.trim() ? ' and JD compatibility' : ''}</li>}{!requestedStages.length && <li>Return to the workspace and select at least one evidence source.</li>}</ul></div>
     </section>
-    <GitHubEvidenceReview analysis={analysis} isLoading={isLoading} error={error} resumeSkills={resumeSkills} onRetry={runComparison} />
+    <section className="panel section-panel comparison-journey" aria-label="Comparison progress"><span className="eyebrow">COMPARISON JOURNEY</span><h2>We review every connected source in order.</h2><div className="comparison-journey-steps">{requestedStages.map((stage, index) => {
+      const isLoading = stage.id === 'github' ? githubLoading : linkedinLoading
+      const hasError = stage.id === 'github' ? Boolean(githubError) : Boolean(linkedinError)
+      const isDone = stage.id === 'github' ? Boolean(githubAnalysis) : Boolean(linkedinAnalysis)
+      return <div className={`comparison-journey-step ${activeStage === stage.id && isLoading ? 'is-active' : ''} ${isDone ? 'is-complete' : ''} ${hasError ? 'has-error' : ''}`} key={stage.id}><span>{isDone ? '✓' : index + 1}</span><div><strong>{stage.title}</strong><small>{hasError ? 'Needs attention' : isLoading ? 'Comparing now…' : isDone ? 'Comparison complete' : stage.detail}</small></div></div>
+    })}</div>{!requestedStages.length && <p className="source-error">No comparison was queued. Return to the workspace and choose Compare.</p>}</section>
+    {sources.github && <GitHubEvidenceReview analysis={githubAnalysis} isLoading={githubLoading} error={githubError} resumeSkills={resumeSkills} onRetry={runComparison} />}
+    {sources.linkedin && <LinkedInEvidenceReview profile={linkedinProfile?.resumeData} resumeData={resumeData} hasJobDescription={Boolean(jobDescription.trim())} analysis={linkedinAnalysis} isLoading={linkedinLoading} error={linkedinError} onRetry={runComparison} />}
   </Shell>
 }
 

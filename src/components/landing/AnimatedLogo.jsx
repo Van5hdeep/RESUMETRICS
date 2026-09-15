@@ -17,7 +17,7 @@ export default function AnimatedLogo() {
   return <div className="animated-logo-wrap">
     <span className="logo-glow" aria-hidden="true" />
     <div className="logo-writing-stage" role="img" aria-label="Resumetrics">
-      <span className="logo-wordmark">{wordmark.map((letter, index) => <span className={`logo-letter ${index < writtenLetters ? 'is-written' : ''}`} style={{ '--letter-tilt': `${letterTilts[index]}deg` }} key={`${letter}-${index}`}>{letter}</span>)}</span>
+      <span className="logo-wordmark">{wordmark.map((letter, index) => <span className={`logo-letter${index >= 4 ? ' is-metrics' : ''}${index < writtenLetters ? ' is-written' : ''}`} style={{ '--letter-tilt': `${letterTilts[index]}deg` }} key={`${letter}-${index}`}>{letter}</span>)}</span>
     </div>
     <span className="logo-caption">CAREER DATA, IN FOCUS</span>
   </div>

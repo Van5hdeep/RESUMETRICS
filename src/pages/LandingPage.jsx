@@ -7,6 +7,7 @@ import FeatureGrid from '../components/landing/FeatureGrid.jsx'
 import ProductPreview from '../components/landing/ProductPreview.jsx'
 import FinalCTA from '../components/landing/FinalCTA.jsx'
 import '../styles/landing.css'
+import '../styles/landing-wordmark.css'
 
 export default function LandingPage() {
   useEffect(() => {

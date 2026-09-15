@@ -66,6 +66,13 @@ export function applyResumeEditPlan({ resumeData, plan }) {
       nextResumeData[operation.target] = operation.type === 'append_list' ? appendUnique(currentItems, operation.values) : [...operation.values]
     }
 
+    if (operation.type === 'set_link') nextResumeData.links[operation.linkIndex] = { ...operation.value }
+    if (operation.type === 'append_link') {
+      const knownUrls = new Set(nextResumeData.links.map(link => link.url.toLocaleLowerCase()))
+      if (!knownUrls.has(operation.value.url.toLocaleLowerCase())) nextResumeData.links.push({ ...operation.value })
+    }
+    if (operation.type === 'replace_links') nextResumeData.links = operation.values.map(link => ({ ...link }))
+
     if (operation.type === 'set_footer') footerUpdate = operation.value
     if (operation.type === 'clear_footer') footerUpdate = ''
 
