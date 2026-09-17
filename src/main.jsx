@@ -351,7 +351,7 @@ function DashboardPage() {
 
   const selectTemplate = templateId => {
     recordDashboardTemplateChoice(templateId)
-    navigate('/workspace', { state: { dashboardTemplateId: templateId } })
+    navigate('/workspace/editor', { state: { dashboardTemplateId: templateId } })
   }
 
   const projectCards = [
@@ -368,10 +368,10 @@ function DashboardPage() {
           <span className="dashboard-project-icon"><Icon name={project.type === 'create' ? 'plus' : 'folder'} size={31} /></span>
           <strong>{project.label}</strong>
         </button>)}</div>
-        {canAdvanceProjects && <button className="dashboard-project-arrow" type="button" aria-label="Show more projects" onClick={() => projectRailRef.current?.scrollBy({ left: projectRailRef.current.clientWidth * .82, behavior: 'smooth' })}>→</button>}
+        {canAdvanceProjects && <button className="dashboard-project-arrow" type="button" aria-label="View more projects" onClick={() => projectRailRef.current?.scrollBy({ left: projectRailRef.current.clientWidth * .82, behavior: 'smooth' })}>→</button>}
       </section>
       <section className="dashboard-template-section" id="templates" aria-label="Top picks">
-        <div className="dashboard-template-heading"><h2>Top picks</h2><button type="button" onClick={() => navigate('/workspace')}>View all <span aria-hidden="true">→</span></button></div>
+        <div className="dashboard-template-heading"><h2>Top picks</h2></div>
         <div className="dashboard-template-grid">{rankedTemplateCards.map((rankedTemplate, index) => {
           const template = resumeTemplates.find(item => item.id === rankedTemplate.id)
           const PreviewComponent = template?.component
@@ -479,11 +479,12 @@ function MainPage() {
   const hasWorkspaceResumeSkills = workspaceMode === 'editor-ready' && resumeEvidenceSkills.length > 0
 
   useEffect(() => {
-    if (isEditorRoute && workspaceMode === 'initial') navigate('/workspace', { replace: true })
-  }, [isEditorRoute, navigate, workspaceMode])
-
-  useEffect(() => {
     const templateId = location.state?.dashboardTemplateId
+    if (templateId && workspaceMode !== 'initial') return
+    if (!templateId && isEditorRoute && workspaceMode === 'initial') {
+      navigate('/workspace', { replace: true })
+      return
+    }
     if (!templateId || workspaceMode !== 'initial') return
     if (!resumeTemplates.some(template => template.id === templateId)) {
       navigate('/workspace', { replace: true })
@@ -498,7 +499,7 @@ function MainPage() {
     setResumeName('Untitled resume')
     setWorkspaceMode('editor-ready')
     navigate('/workspace/editor', { replace: true })
-  }, [location.state, navigate, workspaceMode])
+  }, [isEditorRoute, location.state, navigate, workspaceMode])
 
   useEffect(() => {
     resumeDataRef.current = resumeData
