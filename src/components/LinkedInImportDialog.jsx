@@ -4,7 +4,7 @@ export default function LinkedInImportDialog({ status, error, onClose, onChooseF
   const isBusy = status === 'reading' || status === 'extracting'
   const statusCopy = {
     reading: ['Reading your profile export…', 'Checking the document for readable profile content.'],
-    extracting: ['Extracting your LinkedIn details…', 'AI is identifying your skills, roles, education, and certifications.']
+    extracting: ['Extracting your LinkedIn details…', 'Identifying your skills, roles, education, and certifications.']
   }[status]
 
   return <div className="linkedin-import-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget && !isBusy) onClose() }}>

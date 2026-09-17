@@ -41,3 +41,7 @@ service-account/
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
+
+# Locally generated reports and their render intermediates.
+/output/
+/tmp/

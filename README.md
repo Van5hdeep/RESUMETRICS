@@ -181,8 +181,6 @@ resumetrics/
 | `/` | Public | Landing page |
 | `/login` | Public | Google authentication |
 | `/workspace` | Authenticated | Main resume workspace |
-| `/import` | Authenticated | Resume import flow |
-| `/create` | Authenticated | Blank resume creation flow |
 | `/evaluation` | Authenticated | Evidence review |
 
 The Vite development server proxies `/api` requests to the Express server at `http://localhost:8787`.

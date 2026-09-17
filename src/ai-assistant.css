@@ -186,12 +186,42 @@
   line-height: 1.45;
 }
 
-.editor-selection-panel { display: grid; gap: 6px; width: 100%; margin-top: 2px; padding-top: 11px; border-top: 1px solid #e2deef; color: #5b6680; }
-.editor-selection-panel strong { color: #34415b; font-size: .72rem; letter-spacing: .055em; text-transform: uppercase; }
-.editor-selection-panel small, .editor-selection-panel span { overflow: hidden; color: #77839a; font-size: .68rem; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
-.editor-selection-actions { display: flex; flex-wrap: wrap; gap: 5px; }
-.editor-selection-actions .text-button { padding: 3px 0; font-size: .7rem; }
-.editor-selection-actions .text-button + .text-button::before { margin-right: 5px; color: #c3c9d4; content: '·'; }
+.ai-edit-conversation {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  min-height: 150px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px 3px 7px;
+  scrollbar-width: thin;
+}
+
+.ai-edit-message {
+  width: fit-content;
+  max-width: 88%;
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 13px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ai-edit-message.assistant {
+  color: #4c5870;
+  border: 1px solid #e2def4;
+  border-bottom-left-radius: 4px;
+  background: #f7f6fd;
+}
+
+.ai-edit-message.user {
+  justify-self: end;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  background: #6250d6;
+}
+
+.ai-edit-message.is-thinking { color: #8073c8; font-style: italic; }
 
 [data-resolved-theme="dark"] .app-shell .ai-edit-minimal { border-color: #303a52; background: #1a2336; }
 [data-resolved-theme="dark"] .app-shell .ai-edit-composer { border-color: #3b4761; background: #121a2b; }
@@ -204,6 +234,116 @@
 [data-resolved-theme="dark"] .app-shell .ai-edit-lock { color: #c4c9d7; background: #303b51; }
 [data-resolved-theme="dark"] .app-shell .ai-edit-minimal.is-locked .ai-edit-composer { background: #172033; }
 [data-resolved-theme="dark"] .app-shell .ai-edit-lock-message { color: #aab5ca; }
+[data-resolved-theme="dark"] .app-shell .ai-edit-message.assistant { color: #d9def0; border-color: #3b4761; background: #121a2b; }
+
+/* The resume editor is an immersive document workspace. NIMBUS replaces the
+   narrow formatting rail, the A4 canvas uses the full available width, and
+   role alignment sits below the document instead of compressing it. */
+.editor-shell { grid-template-columns: minmax(0, 1fr); }
+.editor-shell > main { max-width: 1840px; padding: 30px clamp(24px, 3.5vw, 64px) 72px; }
+.editor-page-header { align-items: flex-end; margin-bottom: 24px; }
+.editor-page-header h1 { max-width: 760px; font-size: clamp(30px, 3vw, 44px); }
+.editor-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+  color: #5b4ac6;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 720;
+}
+.editor-back-button span { font-size: 20px; line-height: 1; transition: transform .18s ease; }
+.editor-back-button:hover span { transform: translateX(-3px); }
+.editor-back-button:focus-visible { outline: 3px solid rgba(95, 77, 208, .2); outline-offset: 5px; border-radius: 4px; }
+
+.editor-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  margin-left: 0;
+}
+.editor-workspace-grid > .resume-canvas {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 1220px;
+  overflow: hidden;
+  border-radius: 18px;
+}
+.editor-workspace-grid > .right-rail { display: contents; }
+.editor-workspace-grid > .right-rail > .ai-edit-minimal {
+  position: sticky;
+  top: 24px;
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 620px;
+  padding: 22px;
+  border-radius: 18px;
+}
+.editor-workspace-grid > .right-rail > .analysis-panel {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  grid-template-columns: minmax(260px, .52fr) minmax(480px, 1.48fr);
+  gap: 14px 28px;
+  margin-top: 8px;
+  padding: 30px;
+  border-radius: 18px;
+}
+.editor-workspace-grid > .right-rail > .analysis-panel > div:first-child { grid-column: 1; grid-row: 1; }
+.editor-workspace-grid > .right-rail > .analysis-panel textarea {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  height: 250px;
+  min-height: 250px;
+  margin: 0;
+  padding: 17px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.editor-workspace-grid > .right-rail > .analysis-panel .char-count { grid-column: 2; grid-row: 2; margin: -8px 2px 0; }
+.editor-workspace-grid > .right-rail > .analysis-panel > .full-width { grid-column: 1; grid-row: 2; align-self: start; width: 100%; }
+.editor-workspace-grid > .right-rail > .analysis-panel > .score-card { grid-column: 1 / -1; grid-row: 3; margin-top: 6px; padding: 22px; }
+.editor-workspace-grid .resume-page-scroller {
+  max-height: none;
+  overflow: visible;
+  padding: 28px 24px 38px;
+  scroll-snap-type: none;
+  scrollbar-gutter: auto;
+}
+.editor-workspace-grid .resume-page-document { gap: 28px; }
+.editor-workspace-grid .resume-page-frame { scroll-snap-align: none; }
+.editor-shell .workspace-lower-grid { margin-top: 24px; }
+.editor-shell .evidence-panel { padding: 28px 30px; border-radius: 18px; }
+
+[data-resolved-theme="dark"] .editor-back-button { color: #b8adff; }
+
+@media (max-width: 1180px) {
+  .editor-workspace-grid { grid-template-columns: minmax(0, 1fr); }
+  .editor-workspace-grid > .resume-canvas { grid-column: 1; grid-row: 1; }
+  .editor-workspace-grid > .right-rail > .ai-edit-minimal { position: static; grid-column: 1; grid-row: 2; min-height: 0; }
+  .editor-workspace-grid > .right-rail > .analysis-panel { grid-column: 1; grid-row: 3; }
+}
+
+@media (max-width: 760px) {
+  .editor-shell > main { padding: 22px 14px 52px; }
+  .editor-page-header { align-items: flex-start; }
+  .editor-workspace-grid { gap: 16px; }
+  .editor-workspace-grid > .resume-canvas { min-height: 0; border-radius: 14px; }
+  .editor-workspace-grid > .right-rail > .analysis-panel { grid-template-columns: 1fr; padding: 22px 18px; }
+  .editor-workspace-grid > .right-rail > .analysis-panel > div:first-child,
+  .editor-workspace-grid > .right-rail > .analysis-panel textarea,
+  .editor-workspace-grid > .right-rail > .analysis-panel .char-count,
+  .editor-workspace-grid > .right-rail > .analysis-panel > .full-width,
+  .editor-workspace-grid > .right-rail > .analysis-panel > .score-card { grid-column: 1; grid-row: auto; }
+  .editor-workspace-grid > .right-rail > .analysis-panel textarea { min-height: 220px; }
+  .editor-workspace-grid .resume-page-scroller { padding: 16px 8px 24px; }
+}
 
 @media (max-width: 740px) {
   .ai-edit-animation { width: 132px; }

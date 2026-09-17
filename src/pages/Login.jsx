@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { DotLottieReact } from '@lottiefiles/dotlottie-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import logo from '../assets/resumetrics-logo.png'
 import './login.css'
@@ -10,14 +11,31 @@ export default function Login() {
   const { signInWithGoogle, isConfigured } = useAuth()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const from = location.state?.from?.pathname || '/workspace'
+  const [authStage, setAuthStage] = useState('idle')
+  const from = location.state?.from?.pathname || '/dashboard'
+
+  const finishApproval = useCallback(() => {
+    setAuthStage(stage => stage === 'approving' ? 'exiting' : stage)
+  }, [])
+
+  useEffect(() => {
+    if (authStage !== 'approving') return undefined
+    const fallbackTimer = window.setTimeout(finishApproval, 4200)
+    return () => window.clearTimeout(fallbackTimer)
+  }, [authStage, finishApproval])
+
+  useEffect(() => {
+    if (authStage !== 'exiting') return undefined
+    const navigateTimer = window.setTimeout(() => navigate(from, { replace: true }), 780)
+    return () => window.clearTimeout(navigateTimer)
+  }, [authStage, from, navigate])
 
   const handleGoogleSignIn = async () => {
     setError('')
     setLoading(true)
     try {
       await signInWithGoogle()
-      navigate(from, { replace: true })
+      setAuthStage('approving')
     } catch (signInError) {
       console.error('Google sign-in failed:', signInError)
       setError(signInError?.code === 'auth/popup-closed-by-user'
@@ -28,8 +46,20 @@ export default function Login() {
     }
   }
 
-  return <main className="login-page">
-    <section className="login-card" aria-labelledby="login-title">
+  return <main className={`login-page login-page--${authStage}`}>
+    <div className="login-clouds" aria-hidden="true">
+      <img className="login-cloud-image login-cloud-image-back" src="/login-clouds.png" alt="" />
+      <img className="login-cloud-image login-cloud-image-front" src="/login-clouds.png" alt="" />
+    </div>
+    <div className="login-layout">
+      <div className="login-neon-message">
+        <h1 aria-label="Build your best resume"><span className="neon-word neon-word-build">BUILD</span><span className="neon-word neon-word-your">YOUR</span><span className="neon-word neon-word-best">BEST</span><span className="neon-word neon-word-resume">Resume</span></h1>
+      </div>
+      <section className={`login-card${authStage !== 'idle' ? ' login-card--approved' : ''}`} aria-label={authStage === 'idle' ? 'Sign in' : 'Authentication complete'}>
+      {authStage !== 'idle' ? <div className="login-approval" aria-live="polite">
+        <DotLottieReact className="login-approval-animation" src="/approve.lottie" autoplay loop={false} speed={1.08} aria-label="Authentication approved" dotLottieRefCallback={dotLottie => dotLottie?.addEventListener('complete', finishApproval)} />
+        <h2>Approved</h2>
+      </div> : <>
       <img className="login-logo" src={logo} alt="Resumetrics" />
       <span className="eyebrow">RESUMETRICS</span>
       <h1 id="login-title">Welcome.</h1>
@@ -46,6 +76,8 @@ export default function Login() {
         {loading ? 'Signing in…' : 'Continue with Google'}
       </button>
       <p className="login-legal">Your account keeps your resume workspace private.</p>
-    </section>
+      </>}
+      </section>
+    </div>
   </main>
 }

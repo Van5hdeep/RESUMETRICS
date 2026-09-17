@@ -76,6 +76,32 @@ function EducationEntry({ item, itemIndex }) {
   </article>
 }
 
+function EntryListContinuation({ item, itemIndex, valueIndex, section, listKey }) {
+  const value = asArray(item?.[listKey])[valueIndex]
+  if (!value) return null
+  return <div className="resume-entry resume-entry-continuation">
+    <ul><li><EditableText path={`${section}.${itemIndex}.${listKey}.${valueIndex}`} elementId={`${section}.${item?.id || itemIndex}.${listKey}.${valueIndex}`}>{value}</EditableText></li></ul>
+  </div>
+}
+
+function buildEntryBlocks(items, type, listKey) {
+  return items.flatMap((item, itemIndex) => {
+    const values = asArray(item?.[listKey])
+    if (values.length < 2) return [{ id: `${type}-${itemIndex}`, type, value: item, itemIndex }]
+    return [
+      { id: `${type}-${itemIndex}`, type, value: { ...item, [listKey]: values.slice(0, 1) }, itemIndex },
+      ...values.slice(1).map((_, continuationIndex) => ({
+        id: `${type}-${itemIndex}-${listKey}-${continuationIndex + 1}`,
+        type: `${type}-continuation`,
+        value: item,
+        itemIndex,
+        valueIndex: continuationIndex + 1,
+        listKey
+      }))
+    ]
+  })
+}
+
 const sectionOrderByVariant = {
   azurill: ['summary', 'experience', 'projects', 'skills', 'education', 'certifications', 'achievements', 'languages'],
   bronzor: ['summary', 'experience', 'projects', 'education', 'skills', 'certifications', 'achievements', 'languages'],
@@ -122,21 +148,21 @@ function buildSections(resumeData, variant) {
       id: 'experience',
       title: 'Experience',
       blocks: experience.length
-        ? experience.map((item, index) => ({ id: `experience-${index}`, type: 'experience', value: item, itemIndex: index }))
+        ? buildEntryBlocks(experience, 'experience', 'bullets')
         : [{ id: 'experience-placeholder', type: 'placeholder', value: 'Add your work experience here.' }],
     },
     {
       id: 'projects',
       title: 'Projects',
       blocks: projects.length
-        ? projects.map((item, index) => ({ id: `project-${index}`, type: 'project', value: item, itemIndex: index }))
+        ? buildEntryBlocks(projects, 'project', 'bullets')
         : [{ id: 'project-placeholder', type: 'placeholder', value: 'Add a project that shows your impact.' }],
     },
     {
       id: 'education',
       title: 'Education',
       blocks: education.length
-        ? education.map((item, index) => ({ id: `education-${index}`, type: 'education', value: item, itemIndex: index }))
+        ? buildEntryBlocks(education, 'education', 'details')
         : [{ id: 'education-placeholder', type: 'placeholder', value: 'Add your education details here.' }],
     },
     {
@@ -175,8 +201,11 @@ function buildSections(resumeData, variant) {
 
 function RenderBlock({ block }) {
   if (block.type === 'experience') return <ExperienceEntry item={block.value} itemIndex={block.itemIndex} />
+  if (block.type === 'experience-continuation') return <EntryListContinuation item={block.value} itemIndex={block.itemIndex} valueIndex={block.valueIndex} section="experience" listKey="bullets" />
   if (block.type === 'project') return <ProjectEntry item={block.value} itemIndex={block.itemIndex} />
+  if (block.type === 'project-continuation') return <EntryListContinuation item={block.value} itemIndex={block.itemIndex} valueIndex={block.valueIndex} section="projects" listKey="bullets" />
   if (block.type === 'education') return <EducationEntry item={block.value} itemIndex={block.itemIndex} />
+  if (block.type === 'education-continuation') return <EntryListContinuation item={block.value} itemIndex={block.itemIndex} valueIndex={block.valueIndex} section="education" listKey="details" />
   if (block.type === 'placeholder') return <p className="resume-placeholder">{block.value}</p>
   if (block.type === 'skills') return <p className="resume-skills"><EditableText path="skills">{block.value}</EditableText></p>
   if (block.type === 'languages') return <p className="resume-skills"><EditableText path="languages">{block.value}</EditableText></p>
@@ -329,12 +358,9 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
   }
   const sections = useMemo(() => buildSections(templateResume, variant), [templateResume, variant])
   const shellRef = useRef(null)
-  const scrollerRef = useRef(null)
   const measurementRef = useRef(null)
-  const pageRefs = useRef([])
   const [pageWidth, setPageWidth] = useState(MAX_A4_WIDTH)
   const [pages, setPages] = useState(() => initialPages(sections))
-  const [activePage, setActivePage] = useState(0)
   const pageHeight = Math.round(pageWidth * A4_RATIO)
 
   useEffect(() => {
@@ -360,32 +386,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
     if (preview) return
     const nextPages = paginateMeasurement(measurementRef.current, sections)
     setPages(nextPages)
-    setActivePage(current => Math.min(current, nextPages.length - 1))
   }, [editorStyle, footerText, pageHeight, preview, sections, useGlobalTextColor, variant])
-
-  useEffect(() => {
-    if (preview || pages.length < 2) return undefined
-    const scroller = scrollerRef.current
-    if (!scroller) return undefined
-
-    const updateActivePage = () => {
-      const scrollerTop = scroller.getBoundingClientRect().top
-      let closestPage = 0
-      let closestDistance = Number.POSITIVE_INFINITY
-      pageRefs.current.forEach((element, index) => {
-        if (!element) return
-        const distance = Math.abs(element.getBoundingClientRect().top - scrollerTop - 12)
-        if (distance < closestDistance) {
-          closestDistance = distance
-          closestPage = index
-        }
-      })
-      setActivePage(closestPage)
-    }
-
-    scroller.addEventListener('scroll', updateActivePage, { passive: true })
-    return () => scroller.removeEventListener('scroll', updateActivePage)
-  }, [pages.length, preview])
 
   if (preview) {
     return <SingleResume
@@ -400,12 +401,6 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
       onManualEdit={onManualEdit}
       presentation={presentation}
     />
-  }
-
-  const goToPage = index => {
-    const nextIndex = Math.max(0, Math.min(pages.length - 1, index))
-    pageRefs.current[nextIndex]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    setActivePage(nextIndex)
   }
 
   const commitManualEdit = event => {
@@ -424,13 +419,7 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
   }
 
   return <div className="resume-document-shell" ref={shellRef}>
-    {pages.length > 1 && <nav className="resume-page-controls" aria-label="Resume pages">
-      <button type="button" onClick={() => goToPage(activePage - 1)} disabled={activePage === 0} aria-label="Previous resume page">‹</button>
-      <span>Page {activePage + 1} of {pages.length}</span>
-      <button type="button" onClick={() => goToPage(activePage + 1)} disabled={activePage === pages.length - 1} aria-label="Next resume page">›</button>
-    </nav>}
-
-    <div className="resume-page-scroller" ref={scrollerRef}>
+    <div className="resume-page-scroller">
       <div
         ref={editorRef}
         className="resume-page-document"
@@ -446,7 +435,6 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
         {pages.map((page, pageIndex) => <div
           className="resume-page-frame"
           style={{ width: pageWidth, height: pageHeight }}
-          ref={element => { pageRefs.current[pageIndex] = element }}
           data-page-number={pageIndex + 1}
           key={`${pageIndex}-${page.groups.map(group => `${group.sectionId}:${group.blockIndexes.join(',')}`).join('|')}`}
         >

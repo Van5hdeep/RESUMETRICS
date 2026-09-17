@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { templatePreviewResumeData } from '../data/templatePreviewData.js'
-import TemplateQualityReport from './TemplateQualityReport.jsx'
-import { assessTemplateContent, auditTemplateRender } from '../templates/templateQuality.js'
 
 const isTypingTarget = element => ['INPUT', 'TEXTAREA', 'SELECT'].includes(element?.tagName) || element?.isContentEditable
 const TEMPLATE_SWITCH_MS = 170
 
-export default function ResumeTemplateSelector({ templates, selectedTemplateId, onSelect, onBack, isImported, editorStyle, presentation, currentResumeData = null, onAutoFix, useGlobalTextColor = false, footerText = '' }) {
+export default function ResumeTemplateSelector({ templates, selectedTemplateId, onSelect, onBack, isImported, editorStyle, presentation, useGlobalTextColor = false, footerText = '' }) {
   const initialIndex = useMemo(() => Math.max(templates.findIndex(template => template.id === selectedTemplateId), 0), [templates, selectedTemplateId])
   const [activeIndex, setActiveIndex] = useState(initialIndex)
   const activeTemplate = templates[activeIndex]
@@ -14,7 +12,6 @@ export default function ResumeTemplateSelector({ templates, selectedTemplateId, 
   const count = templates.length
   const previewRef = useRef(null)
   const switchTimerRef = useRef(null)
-  const [renderAudit, setRenderAudit] = useState(null)
   const [isSwitching, setIsSwitching] = useState(false)
 
   useEffect(() => {
@@ -42,22 +39,10 @@ export default function ResumeTemplateSelector({ templates, selectedTemplateId, 
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [activeIndex, count, isSwitching])
 
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setRenderAudit(auditTemplateRender(previewRef.current)))
-    return () => window.cancelAnimationFrame(frame)
-  }, [activeTemplate?.id, editorStyle, footerText, presentation, useGlobalTextColor])
-
   if (!activeTemplate || !PreviewComponent) return null
 
   const move = direction => requestTemplateIndex((activeIndex + direction + count) % count)
   const isSelected = selectedTemplateId === activeTemplate.id
-  const qualityReport = assessTemplateContent({
-    template: activeTemplate,
-    resumeData: currentResumeData || templatePreviewResumeData,
-    presentation: { ...activeTemplate.defaultTheme, ...presentation, ...(!currentResumeData ? { photo: templatePreviewResumeData.photo } : {}) },
-    renderAudit,
-  })
-
   return <section className="resume-template-selector template-carousel" aria-label="Choose a resume template">
     <div className="workspace-state-heading template-selector-heading">
       <div><span className="eyebrow">RESUME TEMPLATES</span><h2>Choose your template.</h2><p>{isImported ? `Your original file remains unchanged. Preview all ${templates.length} structures with a compact John Doe sample before creating an editable draft.` : `Preview all ${templates.length} professional structures with a compact John Doe sample, then continue with your own information.`}</p></div>
@@ -88,12 +73,6 @@ export default function ResumeTemplateSelector({ templates, selectedTemplateId, 
       </div>
       <button className="template-carousel-arrow next" type="button" disabled={isSwitching} onClick={() => move(1)} aria-label={`Show next template, ${templates[(activeIndex + 1) % count].name}`}>›</button>
     </div>
-
-    <TemplateQualityReport
-      report={qualityReport}
-      usesCurrentResume={Boolean(currentResumeData)}
-      onAutoFix={() => onAutoFix?.(activeTemplate.id, qualityReport.suggestedPresentation)}
-    />
 
     <div className="template-carousel-actions">
       <button className="primary-button" type="button" disabled={isSelected} onClick={() => !isSelected && onSelect(activeTemplate.id)}>{isSelected ? 'Current Template' : 'Select Template'}</button>

@@ -1,7 +1,28 @@
 .workspace-grid.setup-mode {
-  grid-template-columns: minmax(0, 1fr) minmax(292px, .44fr);
+  grid-template-columns: minmax(0, 1fr);
   column-gap: 8px;
   margin-left: 0;
+  align-items: start;
+}
+
+.workspace-grid.setup-mode .resume-canvas {
+  height: auto;
+  min-height: 620px;
+}
+
+.workspace-grid.setup-mode .resume-start-options {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-grid.setup-mode .resume-start-grid {
+  flex: 1;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.workspace-grid.setup-mode .resume-start-card {
+  min-height: 0;
 }
 
 .workspace-state-heading {
@@ -27,9 +48,11 @@
 .resume-start-grid,
 .resume-template-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
+
+.resume-start-grid { grid-template-columns: 1fr; }
+.resume-template-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 .resume-start-card,
 .resume-template-card,
@@ -41,10 +64,12 @@
 }
 
 .resume-start-card {
-  min-height: 235px;
+  min-height: 142px;
   padding: 22px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 18px;
   align-items: flex-start;
 }
 
@@ -62,7 +87,7 @@
 
 .resume-start-card h3,
 .resume-template-card h3 {
-  margin: 17px 0 7px;
+  margin: 0 0 7px;
   color: #14203a;
   font-size: 1.03rem;
 }
@@ -78,9 +103,74 @@
   line-height: 1.55;
 }
 
-.resume-start-card button { margin-top: auto; }
+.resume-start-card > div:not(.start-card-icon) { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+.resume-start-card button { grid-column: 3; grid-row: 1 / 3; align-self: center; margin-top: 0; white-space: nowrap; }
 
 .upload-input { display: none; }
+
+.file-selected-state {
+  padding: 20px 28px 30px;
+}
+
+.upload-ready-card {
+  min-height: 330px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  border: 1px solid #e3def8;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fff, #faf9ff);
+}
+
+.upload-ready-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #f1eeff;
+  color: #5d49d8;
+}
+
+.upload-ready-card .eyebrow { margin-top: 22px; }
+.upload-ready-card h2 { max-width: 100%; margin: 7px 0; overflow-wrap: anywhere; color: #13203a; font-size: 1.35rem; }
+.upload-ready-card p { max-width: 520px; margin: 0; color: #66728a; font-size: .88rem; line-height: 1.55; }
+
+.upload-ready-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.delete-file-button {
+  padding: 10px 14px;
+  border: 1px solid #efd8dc;
+  border-radius: 9px;
+  background: #fff;
+  color: #a54757;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.delete-file-button:hover { border-color: #dcaeb6; background: #fff8f9; }
+
+.evidence-panel {
+  align-self: start;
+}
+
+.evidence-panel .sources {
+  flex: initial;
+}
+
+.evidence-panel .source {
+  min-height: initial;
+  padding: 9px 0;
+}
 
 .flow-loading {
   min-height: 330px;
@@ -97,6 +187,12 @@
   border-top-color: #604ce0;
   border-radius: 50%;
   animation: resume-spin .8s linear infinite;
+}
+
+.flow-loading-animation {
+  width: 92px;
+  height: 92px;
+  margin: 0 auto 13px;
 }
 
 @keyframes resume-spin { to { transform: rotate(360deg); } }
@@ -234,8 +330,6 @@
 .template-elegant-sidebar .resume-sidebar .skill-list span { background: rgba(255,255,255,.12); color: #edf0fb; }
 .template-elegant-sidebar .resume-template-header { border: 0; }
 
-.selection-hint { margin-top: 7px; text-align: center; }
-
 /* Active flow component styling. The component names stay deliberately
    semantic so more templates can share the same editing surface. */
 .resume-template-selector { padding: 20px 28px 30px; }
@@ -336,11 +430,6 @@
 .template-live-preview-frame .generated-resume { min-height: 0; margin: 18px auto; max-width: 660px; transform-origin: top center; }
 .template-live-preview { pointer-events: none; }
 
-/* Keep all three alignment actions inside the narrow editor rail. */
-.align-buttons { width: 100%; min-width: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.align-buttons .tool { width: auto; min-width: 0; display: grid; place-items: center; padding: 0; }
-.align-buttons .tool svg { display: block; max-width: 100%; }
-
 .analysis-result-section { margin-top: 13px; }
 .analysis-result-section > strong { display: block; color: #56627a; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; }
 .analysis-result-section .skill-tags { margin-top: 7px; }
@@ -362,11 +451,6 @@
 
 @keyframes analysis-pulse { 50% { opacity: .36; } }
 
-@media (max-width: 700px) {
-  .align-tools { flex: 0 0 auto; }
-  .align-buttons { width: 104px; flex: 0 0 104px; }
-}
-
 @media (max-width: 650px) {
   .resume-template-selector { padding-left: 18px; padding-right: 18px; }
   .generated-resume-header { flex-direction: column; }
@@ -381,12 +465,19 @@
 }
 
 @media (max-width: 650px) {
-  .resume-start-options, .flow-loading, .extraction-review, .template-selector, .workspace-state-heading { padding-left: 18px; padding-right: 18px; }
+  .resume-start-options, .file-selected-state, .flow-loading, .extraction-review, .template-selector, .workspace-state-heading { padding-left: 18px; padding-right: 18px; }
   .flow-error { margin-left: 18px; margin-right: 18px; }
   .resume-start-grid, .resume-template-grid { grid-template-columns: 1fr; }
   .template-selector-heading, .extraction-review-header { align-items: flex-start; flex-direction: column; }
   .state-actions { align-items: stretch; flex-direction: column-reverse; }
   .state-actions button { width: 100%; }
+  .upload-ready-card { padding: 24px; }
+  .workspace-grid.setup-mode .resume-canvas { min-height: 560px; }
+  .resume-start-card { grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; }
+  .resume-start-card > div:not(.start-card-icon) { grid-column: 2; grid-row: 1; }
+  .resume-start-card button { grid-column: 2; grid-row: 2; justify-self: start; margin-top: 12px; }
+  .upload-ready-actions { width: 100%; flex-direction: column; }
+  .upload-ready-actions button { width: 100%; }
   .template-elegant-sidebar .resume-template-layout { grid-template-columns: 1fr; gap: 0; }
 }
 
@@ -394,7 +485,7 @@
    order; variants only adjust visual accents, never the content structure. */
 .generated-resume {
   min-height: 0;
-  padding: 0.42in 0.48in;
+  padding: 0.36in 0.44in;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 10pt;
   line-height: 1.28;
@@ -407,14 +498,16 @@
 [data-resume-element-id] { cursor: text; outline: 1px solid transparent; outline-offset: 2px; transition: outline-color .14s ease, background-color .14s ease; }
 [data-resume-element-id]:hover { outline-color: rgba(71, 83, 164, .34); background: rgba(235, 237, 255, .28); }
 .generated-resume-photo[data-resume-element-id] { cursor: pointer; }
-.resume-section { margin-top: 12px; }
+.resume-section { margin-top: 10px; }
 .resume-section h2 { margin-bottom: 4px; font-size: 10.5pt; letter-spacing: .07em; }
-.resume-entry { margin-bottom: 7px; }
+.resume-entry { margin-bottom: 6px; }
 .resume-entry-heading { font-size: 10pt; }
 .resume-entry-heading span { font-size: 9pt; }
 .resume-entry-subtitle { font-size: 9.5pt !important; }
 .resume-entry ul, .resume-section ul { margin: 2px 0 0; padding-left: 17px; }
 .resume-entry li, .resume-section li { margin: 1px 0; }
+.resume-entry-continuation { margin: -2px 0 2px; }
+.resume-entry-continuation ul { margin-top: 0; }
 .resume-skills { color: inherit; }
 .template-elegant-sidebar { border-left: 10px solid #283551; }
 .template-elegant-sidebar .generated-resume-header { border-bottom-color: #283551; }
@@ -423,11 +516,6 @@
 /* The editor is a stack of exact A4 pages. Structured resume blocks are
    measured in an invisible A4 sheet and moved to the next page as needed. */
 .resume-document-shell { position: relative; min-width: 0; background: #f3f4f8; }
-.resume-page-controls { display: flex; position: relative; z-index: 3; min-height: 42px; align-items: center; justify-content: center; gap: 12px; padding: 7px 12px; border-bottom: 1px solid #dfe3ed; background: rgba(249, 250, 253, .96); color: #5f6c82; font-size: .78rem; font-weight: 750; font-variant-numeric: tabular-nums; backdrop-filter: blur(8px); }
-.resume-page-controls button { display: grid; width: 28px; height: 28px; place-items: center; padding: 0 0 2px; border: 1px solid #d9d5ee; border-radius: 50%; background: #fff; color: #5f4dd0; font-size: 1.35rem; line-height: 1; cursor: pointer; transition: border-color .18s ease, background .18s ease, opacity .18s ease; }
-.resume-page-controls button:hover:not(:disabled) { border-color: #9b8ee7; background: #f3f1ff; }
-.resume-page-controls button:focus-visible { outline: 3px solid rgba(95, 77, 208, .22); outline-offset: 2px; }
-.resume-page-controls button:disabled { opacity: .34; cursor: default; }
 .resume-page-scroller { max-height: min(1120px, calc(100vh - 150px)); overflow-x: hidden; overflow-y: auto; padding: 16px 16px 30px; background: #f3f4f8; scroll-behavior: smooth; scroll-snap-type: y proximity; scrollbar-gutter: stable; }
 .resume-page-document { display: grid; min-width: 0; justify-items: center; gap: 20px; outline: none; }
 .resume-page-frame { position: relative; flex: none; scroll-margin-top: 12px; scroll-snap-align: start; }
@@ -441,8 +529,6 @@
 
 [data-resolved-theme="dark"] .app-shell .resume-document-shell,
 [data-resolved-theme="dark"] .app-shell .resume-page-scroller { background: #111827; }
-[data-resolved-theme="dark"] .app-shell .resume-page-controls { border-color: #303a52; background: rgba(26, 35, 54, .96); color: #b5bfd2; }
-[data-resolved-theme="dark"] .app-shell .resume-page-controls button { border-color: #414c65; background: #121a2b; color: #b8adff; }
 
 /* One A4-style preview, driven by the same template component as the editor. */
 .template-carousel { max-width: 980px; margin: 0 auto; }
@@ -477,16 +563,6 @@
 .template-carousel-actions { display: grid; justify-items: center; gap: 12px; margin-top: 19px; }
 .template-carousel-actions .primary-button { min-width: 190px; }
 .template-position { color: #758198; font-size: .82rem; font-variant-numeric: tabular-nums; }
-.font-picker { position: relative; min-width: 132px; }
-.font-picker-trigger { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 5px; padding: 5px 6px; border: 1px solid #d8dbe5; border-radius: 6px; background: #fff; color: #344056; font-size: .72rem; cursor: pointer; }
-.font-picker-trigger span { color: #8993a6; font-size: .8rem; }
-.font-picker-trigger:disabled { cursor: not-allowed; opacity: .55; }
-.font-picker-popover { position: absolute; z-index: 30; top: calc(100% + 5px); right: 0; width: 218px; padding: 7px; border: 1px solid #d9d5ed; border-radius: 9px; background: #fff; box-shadow: 0 12px 28px rgba(35, 35, 73, .18); }
-.font-picker-popover > input { width: 100%; box-sizing: border-box; padding: 7px 8px; border: 1px solid #e1dfeb; border-radius: 6px; outline: none; font-size: .74rem; }
-.font-picker-options { max-height: 250px; margin-top: 5px; overflow: auto; }
-.font-picker-options button { display: grid; width: 100%; gap: 2px; padding: 7px 8px; border: 0; border-radius: 5px; background: transparent; color: #344056; text-align: left; cursor: pointer; }
-.font-picker-options button:hover { background: #f3f1ff; color: #5140b4; }
-.font-picker-options small { color: #8a94a6; font-family: Inter, sans-serif; font-size: .62rem; }
 @keyframes template-preview-enter { from { opacity: .18; transform: scale(.88) translateY(14px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 @keyframes template-preview-exit { from { opacity: 1; transform: scale(1) translateY(0); } to { opacity: .1; transform: scale(.86) translateY(-10px); } }
 
@@ -513,7 +589,6 @@
   .resume-canvas > .canvas-top,
   .resume-pagination-measure { display: none !important; }
   @page { size: A4; margin: 0; }
-  .resume-page-controls { display: none !important; }
   .resume-page-scroller { max-height: none; overflow: visible; padding: 0; background: transparent; }
   .resume-page-document { display: block; }
   .resume-page-frame { width: 210mm !important; height: 297mm !important; break-after: page; page-break-after: always; }
@@ -818,33 +893,9 @@
 .template-azurill .resume-entry-heading, .template-bronzor .resume-entry-heading, .template-ditgar .resume-entry-heading, .template-gengar .resume-entry-heading, .template-glalie .resume-entry-heading, .template-leafish .resume-entry-heading, .template-scizor .resume-entry-heading { display: flex; }
 .template-azurill .resume-entry-heading .resume-entry-period, .template-bronzor .resume-entry-heading .resume-entry-period, .template-ditgar .resume-entry-heading .resume-entry-period, .template-gengar .resume-entry-heading .resume-entry-period, .template-glalie .resume-entry-heading .resume-entry-period, .template-leafish .resume-entry-heading .resume-entry-period, .template-scizor .resume-entry-heading .resume-entry-period { display: inline !important; }
 
-/* Content-aware preview health panel. It reports only geometry/style checks
-   and the Auto-fix button changes presentation values, never resume text. */
-.template-quality-report { max-width: 540px; margin: 15px auto 0; padding: 13px 15px; border: 1px solid #dde1ee; border-radius: 12px; background: #fbfcff; box-shadow: 0 6px 18px rgba(42, 51, 88, .06); }
-.template-quality-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
-.template-quality-heading .eyebrow { display: block; margin-bottom: 3px; font-size: .63rem; }
-.template-quality-heading h4 { margin: 0; color: #273652; font-size: .91rem; }
-.template-ats-status { flex: 0 0 auto; padding: 4px 7px; border-radius: 999px; background: #e8f5ee; color: #267355; font-size: .65rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-.template-ats-status.visual { background: #f6ecfa; color: #7a3c8c; }
-.template-ats-status.ats-moderate { background: #fff3dc; color: #92601b; }
-.template-quality-metrics { display: flex; flex-wrap: wrap; gap: 6px 15px; margin-top: 9px; color: #647189; font-size: .75rem; }
-.template-quality-metrics strong { color: #324566; }
-.template-quality-issues { display: grid; gap: 7px; margin: 11px 0 0; padding: 0; list-style: none; }
-.template-quality-issues li { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 7px; color: #5e6b82; font-size: .74rem; }
-.template-quality-issues li > span { align-self: start; color: #8d5b18; font-size: .64rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
-.template-quality-issues li.info > span { color: #3c6e97; }
-.template-quality-issues strong { display: block; color: #33445f; font-size: .76rem; }
-.template-quality-issues p, .template-quality-passed { margin: 1px 0 0; color: #69758b; font-size: .73rem; line-height: 1.35; }
-.template-autofix-button { margin-top: 11px; padding: 6px 10px; border: 1px solid #bab3e9; border-radius: 7px; background: #f2f0ff; color: #5143bf; font-size: .74rem; font-weight: 750; cursor: pointer; }
-.template-autofix-button:hover { background: #e9e6ff; }
-.template-stress-details { margin-top: 10px; color: #69758b; font-size: .7rem; }
-.template-stress-details summary { cursor: pointer; color: #50607c; font-weight: 700; }
-.template-stress-details p { margin: 5px 0 0; line-height: 1.35; }
-
 @media (max-width: 650px) {
   .template-azurill .generated-resume-header, .template-bronzor .generated-resume-header, .template-ditgar .generated-resume-header, .template-gengar .generated-resume-header, .template-glalie .generated-resume-header, .template-leafish .generated-resume-header, .template-scizor .generated-resume-header { display: block; margin: 0; padding: 12px 0; }
   .template-azurill .generated-resume-identity, .template-bronzor .generated-resume-identity, .template-ditgar .generated-resume-identity, .template-gengar .generated-resume-identity, .template-glalie .generated-resume-identity, .template-leafish .generated-resume-identity, .template-scizor .generated-resume-identity { display: block; }
   .template-azurill .generated-contact, .template-bronzor .generated-contact, .template-ditgar .generated-contact, .template-gengar .generated-contact, .template-glalie .generated-contact, .template-leafish .generated-contact, .template-scizor .generated-contact { margin-top: 8px; color: inherit !important; }
   .template-azurill .generated-resume-photo, .template-bronzor .generated-resume-photo, .template-ditgar .generated-resume-photo, .template-gengar .generated-resume-photo, .template-glalie .generated-resume-photo, .template-leafish .generated-resume-photo, .template-scizor .generated-resume-photo { margin-top: 8px; }
-  .template-quality-report { margin-right: 12px; margin-left: 12px; }
 }

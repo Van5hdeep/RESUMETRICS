@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import BloubAIIcon from './BloubAIIcon.jsx'
 
 function resolveRestingState(value, isFocused, isHovered) {
@@ -13,6 +13,7 @@ export default function AIAssistantEditor({
   onSubmit,
   busy,
   feedback,
+  messages = [],
   inputRef,
   animationState,
   isAvailable = true
@@ -20,9 +21,15 @@ export default function AIAssistantEditor({
   const feedbackId = 'ai-edit-feedback'
   const lockMessageId = 'ai-edit-lock-message'
   const sectionRef = useRef(null)
+  const conversationRef = useRef(null)
   const [isFocused, setIsFocused] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const resolvedAnimationState = isAvailable ? animationState || resolveRestingState(value, isFocused, isHovered) : 'idle'
+
+  useEffect(() => {
+    const conversation = conversationRef.current
+    if (conversation) conversation.scrollTo({ top: conversation.scrollHeight, behavior: 'smooth' })
+  }, [busy, messages])
 
   const handleKeyDown = event => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -50,8 +57,12 @@ export default function AIAssistantEditor({
       <div className="ai-edit-animation" aria-hidden="true">
         <BloubAIIcon state={resolvedAnimationState} followRegionRef={sectionRef} />
       </div>
+      <div ref={conversationRef} className="ai-edit-conversation" role="log" aria-live="polite" aria-label="Conversation with NIMBUS">
+        {messages.map((message, index) => <p className={`ai-edit-message ${message.role}`} key={`${message.role}-${index}`}>{message.text}</p>)}
+        {busy && <p className="ai-edit-message assistant is-thinking">Thinking…</p>}
+      </div>
       <form className="ai-edit-composer" onSubmit={event => { if (!isAvailable) { event.preventDefault(); return } onSubmit(event) }}>
-        <label className="ai-edit-label" htmlFor="ai-edit-request">Describe a change for AI to make</label>
+        <label className="ai-edit-label" htmlFor="ai-edit-request">Ask NIMBUS to edit your resume or start a brief conversation</label>
         <textarea
           id="ai-edit-request"
           ref={inputRef}
@@ -63,10 +74,10 @@ export default function AIAssistantEditor({
           disabled={busy || !isAvailable}
           maxLength="2000"
           rows="2"
-          placeholder={isAvailable ? 'Describe a change to your resume…' : 'Add a resume to unlock NIMBUS'}
+          placeholder={isAvailable ? 'Ask for an edit, advice, or say hello…' : 'Add a resume to unlock NIMBUS'}
           aria-describedby={feedback ? feedbackId : !isAvailable ? lockMessageId : undefined}
         />
-        <button className="ai-edit-send" disabled={busy || !isAvailable} aria-label={busy ? 'Applying AI change' : !isAvailable ? 'NIMBUS is locked until a resume is in the workspace' : 'Send NIMBUS edit request'} type="submit">
+        <button className="ai-edit-send" disabled={busy || !isAvailable} aria-label={busy ? 'NIMBUS is responding' : !isAvailable ? 'NIMBUS is locked until a resume is in the workspace' : 'Send message to NIMBUS'} type="submit">
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 10h12M10.5 5.5 15 10l-4.5 4.5" /></svg>
         </button>
       </form>

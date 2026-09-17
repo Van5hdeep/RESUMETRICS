@@ -1,4 +1,4 @@
-const editStatuses = new Set(['ready', 'needs_clarification', 'rejected', 'no_changes'])
+const editStatuses = new Set(['ready', 'needs_clarification', 'rejected', 'no_changes', 'conversation'])
 const topLevelFields = new Map([
   ['fullName', 160],
   ['headline', 200],
