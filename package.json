@@ -10,7 +10,7 @@
     "dev:all": "concurrently -n client,server -c cyan,magenta \"npm run dev\" \"npm run dev:server\"",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node tests/jdExtract.test.js && node tests/fixPreview.test.js && node tests/jdKeywords.test.js && node tests/skillGroups.test.js && node tests/railSizing.test.js && node tests/sectionProgress.test.js && node tests/inlineMarks.test.js && node tests/factGuard.test.js && node tests/nimbusPlan.test.js && node tests/applyNimbusOperations.test.js && node tests/jdScoring.test.js && node tests/githubEvidence.test.js && node tests/githubScan.test.js && node tests/letterModel.test.js && node tests/letterLint.test.js && node tests/letterPlan.test.js && node tests/signature.test.js && node tests/requireUser.test.js && node tests/providerBudget.test.js && node tests/limits.test.js && node tests/aiUsage.test.js && node tests/mockProvider.test.js",
+    "test": "node -e \"const fs=require('fs');const cp=require('child_process');for(const f of fs.readdirSync('tests').filter((n)=>n.endsWith('.test.js')).sort()){const r=cp.spawnSync(process.execPath,['tests/'+f],{stdio:'inherit'});if(r.status!==0)process.exit(r.status??1);}\"",
     "ai:eval": "node server/ai/evals/run.mjs",
     "ai:ping": "node server/ai/ping.mjs",
     "fonts:fetch": "node scripts/fonts/fetch-fonts.mjs"
