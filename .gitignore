@@ -45,3 +45,9 @@ service-account/
 # Locally generated reports and their render intermediates.
 /output/
 /tmp/
+
+# Claude Code / Kiro working notes
+.kiro/
+*.md
+!README.md
+dashboard-integration-snippet.txt

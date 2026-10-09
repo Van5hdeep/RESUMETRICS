@@ -6,6 +6,7 @@ import githubRoutes from './routes/github.routes.js'
 import resumeRoutes from './routes/resume.routes.js'
 import nimbusRoutes from './routes/nimbus.routes.js'
 import jdRoutes from './routes/jd.routes.js'
+import userRoutes from './routes/user.routes.js'
 import { initializeFirebaseAdmin, requireUser } from './services/firebaseAdmin.js'
 import { createIpLimiter, createUserAiLimits } from './middleware/limits.js'
 import { enforceDailyTokenBudget, trackAiUsage } from './ai/usage.js'
@@ -58,6 +59,7 @@ app.use('/api/github', smallJson, githubRoutes)
 app.use('/api/resume', requireUser, userAiLimits, enforceDailyTokenBudget, documentJson, trackAiUsage, resumeRoutes)
 app.use('/api/nimbus', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, nimbusRoutes)
 app.use('/api/jd', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, jdRoutes)
+app.use('/api/user', smallJson, userRoutes)
 
 try {
   initializeFirebaseAdmin()
