@@ -7,10 +7,12 @@
 .brand-logo-word { display: inline-flex; transform: translateY(.02em); }
 .brand-logo-word > span { display: inline-block; }
 
-/* "R. Resumetrics": a full stop on the R's baseline, then a smaller name sitting on that same line. */
-.brand-logo--dot { align-items: flex-end; gap: .1em; }
+/* "R · Resumetrics": a dot, then a smaller name, both centred on the R's height. The eye centres the name's capitals,
+   not its line box: in Outfit (ascent 1, descent .26, caps .676 em) they sit .032em below the box centre, so the name
+   is nudged up by that much. */
+.brand-logo--dot { align-items: center; gap: .12em; }
 .brand-logo-dot { flex: none; width: .2em; height: .2em; margin-right: .2em; border-radius: 50%; background: var(--brand-mark, var(--accent, #5b45e4)); }
-.brand-logo--dot .brand-logo-word { font-size: .74em; transform: translateY(.155em); }
+.brand-logo--dot .brand-logo-word { font-size: .74em; transform: translateY(-.032em); }
 
 /* Entrance: the page drops in and settles, then the name types itself out letter by letter. */
 .brand-logo--animate .brand-logo-mark { animation: brand-mark-in .7s cubic-bezier(.2, .9, .25, 1.15) both; transform-origin: 40% 60%; }

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth'
 import { auth, isFirebaseConfigured } from '../firebase.js'
+import { resetLogoIntro } from '../components/BrandLogo.jsx'
 
 const AuthContext = createContext(null)
 
@@ -41,7 +42,11 @@ export function AuthProvider({ children }) {
     return result.user
   }
 
-  const signOut = () => auth ? firebaseSignOut(auth) : Promise.resolve()
+  // Signing out lets the sidebar logo play its entrance again on the next sign-in.
+  const signOut = () => {
+    resetLogoIntro()
+    return auth ? firebaseSignOut(auth) : Promise.resolve()
+  }
 
   return <AuthContext.Provider value={{ currentUser, loading, error, isConfigured: isFirebaseConfigured, signInWithGoogle, signOut }}>
     {children}

@@ -1039,7 +1039,7 @@ function Shell({ children, immersive = false, dashboard = false, studio = false 
   return <div className={`app-shell${immersive ? ' editor-shell' : ''}${dashboard ? ' dashboard-shell' : ''}${studio ? ' studio-shell' : ''}`}>
     {!immersive && <aside className="sidebar">
       <NavLink to="/dashboard" state={{ refresh: true }} className="brand" aria-label="Resumetrics dashboard">
-        <BrandLogo animate dot />
+        <BrandLogo animate="once" name="sidebar" dot />
       </NavLink>
       <div className="sidebar-scroll">
         {navSections.map(section => <div className="sidebar-section" key={section.label}>
