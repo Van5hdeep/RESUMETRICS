@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import logo from '../../assets/resumetrics-logo.png'
+import BrandLogo from '../BrandLogo.jsx'
 import LandingIcon from './LandingIcon.jsx'
 
 export function BigCta() {
@@ -26,7 +26,7 @@ export function LandingFooter() {
   return <footer className="lp-footer">
     <div className="lp-footer-top">
       <div className="lp-footer-brand">
-        <img src={logo} alt="Resumetrics" />
+        <BrandLogo />
         <p>Resumes built from your real work, tuned to every job.</p>
         <ul className="lp-socials" aria-label="Resumetrics on social media">
           {socials.map(([icon, name]) => <li key={icon}><a href="#" aria-label={`${name} (coming soon)`} title={`${name} (coming soon)`} onClick={event => event.preventDefault()}><LandingIcon name={icon} size={18} /></a></li>)}

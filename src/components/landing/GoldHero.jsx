@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import logo from '../../assets/resumetrics-logo.png'
+import BrandLogo from '../BrandLogo.jsx'
 import GhostFibers from '../reactbits/GhostFibers.jsx'
 
 /**
@@ -15,7 +15,7 @@ export default function GoldHero() {
     <div className="lp-hero-inner">
       <span className="lp-hero-pill lp-enter" style={{ '--i': 0 }}>New: a job tracker with openings across India</span>
       <h1 className="lp-hero-title">
-        <span className="lp-hero-logo lp-enter" style={{ '--i': 1, '--logo': `url(${logo})` }} role="img" aria-label="Resumetrics" />
+        <BrandLogo className="lp-hero-logo" animate />
         <span className="lp-hero-lede lp-enter" style={{ '--i': 2 }}>The resume your work deserves.</span>
       </h1>
       <p className="lp-hero-sub lp-enter" style={{ '--i': 3 }}>Write it with an AI that never invents a fact, back it up with your GitHub, tailor it to every job post and find openings that fit, all in one place.</p>

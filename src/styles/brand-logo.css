@@ -1,0 +1,25 @@
+/* Resumetrics logo: geometric R mark + the name set in Outfit (bundled in public/fonts). Size with font-size. */
+@font-face { font-family: 'Resumetrics Brand'; src: url('/fonts/outfit/outfit-latin-2.woff2') format('woff2'); font-weight: 100 900; font-style: normal; font-display: swap; unicode-range: U+0000-00FF; }
+
+.brand-logo { display: inline-flex; align-items: center; gap: .3em; color: inherit; font-family: 'Resumetrics Brand', Outfit, Inter, system-ui, sans-serif; font-size: 24px; font-weight: 650; letter-spacing: -.025em; line-height: 1; white-space: nowrap; }
+/* The mark is 1.5x the name's cap height (Outfit caps are .7em). */
+.brand-logo-mark { flex: none; width: auto; height: 1.05em; color: var(--brand-mark, var(--accent, #5b45e4)); overflow: visible; }
+.brand-logo-word { display: inline-flex; transform: translateY(.02em); }
+.brand-logo-word > span { display: inline-block; }
+
+/* "R. Resumetrics": a full stop on the R's baseline, then a smaller name sitting on that same line. */
+.brand-logo--dot { align-items: flex-end; gap: .1em; }
+.brand-logo-dot { flex: none; width: .2em; height: .2em; margin-right: .2em; border-radius: 50%; background: var(--brand-mark, var(--accent, #5b45e4)); }
+.brand-logo--dot .brand-logo-word { font-size: .74em; transform: translateY(.155em); }
+
+/* Entrance: the page drops in and settles, then the name types itself out letter by letter. */
+.brand-logo--animate .brand-logo-mark { animation: brand-mark-in .7s cubic-bezier(.2, .9, .25, 1.15) both; transform-origin: 40% 60%; }
+.brand-logo--animate .brand-logo-word > span { animation: brand-letter-in .55s cubic-bezier(.2, .8, .2, 1) calc(var(--n) * 32ms + 240ms) both; }
+.brand-logo--animate .brand-logo-dot { animation: brand-dot-in .4s cubic-bezier(.2, .9, .25, 1.4) .45s both; }
+@keyframes brand-dot-in { from { opacity: 0; transform: scale(0); } }
+@keyframes brand-mark-in { from { opacity: 0; transform: translateY(-.25em) rotate(-10deg) scale(.7); } }
+@keyframes brand-letter-in { from { opacity: 0; transform: translateY(.35em); filter: blur(4px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-logo--animate .brand-logo-mark, .brand-logo--animate .brand-logo-dot, .brand-logo--animate .brand-logo-word > span { animation: none; }
+}
