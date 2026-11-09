@@ -240,13 +240,10 @@
 /* Sidebar redesign: grouped navigation, recent resumes and an account card. */
 .app-shell, .dashboard-shell { grid-template-columns: 264px minmax(0, 1fr); }
 .app-shell .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 8px 14px 14px; border-right: 1px solid #e9ebf3; color: #172033; background: #f7f7fb; }
-/* Sidebar logo: the R alone, 1.3x its usual size and centred; on hover the name opens to its right as an overlay
-   (brand-logo.css), so the R never moves. The overlay may run past the brand box, so it isn't clipped here. */
-.app-shell .sidebar .brand { position: relative; z-index: 3; height: 52px; margin: 0 0 16px; padding: 0; justify-content: center; border-bottom: 0; overflow: visible; }
+/* Sidebar logo: the R alone at 1.3x its usual size, resting a little left of centre; on hover it slides left as the
+   name slides out to its right, ending as the full lockup centred here (brand-logo.css, reveal). */
+.app-shell .sidebar .brand { height: 52px; margin: 0 0 16px; padding: 0; justify-content: center; border-bottom: 0; }
 .app-shell .sidebar .brand .brand-logo { font-size: 25px; --brand-mark-size: 1.365em; }
-/* A touch smaller than elsewhere so the opened name ends inside the 240px sidebar. */
-.app-shell .sidebar .brand .brand-logo--dot .brand-logo-word { font-size: .67em; }
-.app-shell .sidebar .brand .brand-logo-tail-inner { padding-left: .08em; }
 .sidebar-scroll { flex: 1; min-height: 0; display: grid; align-content: start; gap: 16px; margin: 0 -6px; padding: 0 6px 8px; overflow-y: auto; scrollbar-width: thin; }
 .sidebar-label { display: block; margin: 0 0 8px 12px; color: #8a93a8; font-size: 11.5px; font-weight: 650; letter-spacing: 0; }
 .app-shell .sidebar nav { display: grid; gap: 3px; }
