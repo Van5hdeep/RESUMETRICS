@@ -197,7 +197,8 @@ export function createJobSearch({ store = jobStore, config = env.jobs, fetchImpl
         searchJSearch({ query: queries.linkedin, ...options, pages: 1 }, jsearch)
       ]),
       Promise.all(extra.map(query => searchJSearch({ query, ...options, pages: 1 }, jsearch).catch(error => {
-        console.error(`Related search "${query}" failed:`, error?.message)
+        // The query comes from the user's search, so it is logged as an argument, never as the format string.
+        console.error('Related search failed:', JSON.stringify(query), error?.message)
         return []
       })))
     ])
@@ -246,7 +247,7 @@ export function createJobSearch({ store = jobStore, config = env.jobs, fetchImpl
         web = await readBoardListing({ platform, role: profile.role, location: profile.location, remote: profile.remote, datePosted: profile.datePosted }, { apiKey: config.contextDevKey, fetchImpl })
         source = 'listing'
       } catch (error) {
-        console.error(`Listing page for ${boardLabel(platform)} failed:`, error?.message)
+        console.error('Listing page failed:', boardLabel(platform), error?.message)
       }
     }
     // The fallback search takes up to 20 s; after a slow listing failure it would run past the 60 s request limit.
@@ -255,7 +256,7 @@ export function createJobSearch({ store = jobStore, config = env.jobs, fetchImpl
         web = await searchTavily({ query: searchQueries(profile).web, platform, location: profile.location }, { apiKey: config.tavilyKey, fetchImpl })
         source = 'search'
       } catch (error) {
-        console.error(`Web search of ${boardLabel(platform)} failed:`, error instanceof JobSourceError ? error.message : error?.message)
+        console.error('Web search of board failed:', boardLabel(platform), error instanceof JobSourceError ? error.message : error?.message)
       }
     }
     if (!web) throw new JobSearchError(`${boardLabel(platform)} could not be reached right now.`)

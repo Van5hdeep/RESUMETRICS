@@ -149,7 +149,7 @@ assert.deepEqual([failedBoard.rows, failedBoard.failures, failedBoard.pendingBoa
 const calls = []
 const fakeFetch = async (url, init) => {
   calls.push({ url: String(url), init })
-  if (String(url).includes('api.context.dev')) {
+  if (new URL(String(url)).hostname === 'api.context.dev') {
     const page = JSON.parse(init.body).url
     if (page.includes('indeed')) return new Response(JSON.stringify({ error: 'USAGE_EXCEEDED' }), { status: 402 })
     const jobs = page.includes('naukri')
@@ -294,18 +294,19 @@ assert.ok(roleFit('React Developer', 'Senior Software Engineer - Fullstack') >= 
 assert.ok(roleFit('Software Engineer', 'Senior Software Engineer') > 0, 'a generic role matches generic titles')
 const day = 86_400_000
 const feedNow = Date.UTC(2026, 10, 9)
+// Fake network for the feeds, matched on the parsed host and path (never a substring of the whole address).
 const feedFetch = async url => {
-  const address = String(url)
-  if (address.includes('greenhouse.io/v1/boards/acme/jobs/11')) return new Response(JSON.stringify({ content: '&lt;p&gt;React, TypeScript and CSS. 1-3 years.&lt;/p&gt;' }))
-  if (address.includes('greenhouse.io/v1/boards/acme/jobs')) return new Response(JSON.stringify({ jobs: [
+  const { hostname: host, pathname: path } = new URL(String(url))
+  if (host === 'boards-api.greenhouse.io' && path === '/v1/boards/acme/jobs/11') return new Response(JSON.stringify({ content: '&lt;p&gt;React, TypeScript and CSS. 1-3 years.&lt;/p&gt;' }))
+  if (host === 'boards-api.greenhouse.io' && path === '/v1/boards/acme/jobs') return new Response(JSON.stringify({ jobs: [
     { id: 11, title: 'Frontend Engineer', company_name: 'Acme', location: { name: 'Bangalore, India' }, absolute_url: 'https://job-boards.greenhouse.io/acme/jobs/11', first_published: new Date(feedNow - 2 * day).toISOString() },
     { id: 12, title: 'Frontend Engineer', company_name: 'Acme', location: { name: 'London, UK' }, absolute_url: 'https://job-boards.greenhouse.io/acme/jobs/12' },
     { id: 13, title: 'Account Executive', company_name: 'Acme', location: { name: 'Bengaluru' }, absolute_url: 'https://job-boards.greenhouse.io/acme/jobs/13' },
     { id: 14, title: 'Frontend Developer', company_name: 'Acme', location: { name: 'Bengaluru' }, absolute_url: 'https://job-boards.greenhouse.io/acme/jobs/14', first_published: new Date(feedNow - 90 * day).toISOString() }
   ] }))
-  if (address.includes('api.lever.co/v0/postings/lev')) return new Response(JSON.stringify([{ id: 'l1', text: 'frontend developer', categories: { location: 'bengaluru' }, country: 'IN', hostedUrl: 'https://jobs.lever.co/lev/l1', createdAt: feedNow - day, descriptionPlain: 'React and Redux', lists: [{ text: 'You have', content: '<li>2+ years</li>' }] }]))
-  if (address.includes('api.ashbyhq.com/posting-api/job-board/ash')) return new Response(JSON.stringify({ jobs: [{ id: 'x', title: 'React Developer', location: 'Remote', secondaryLocations: [], address: { postalAddress: { addressCountry: 'India' } }, isRemote: true, isListed: true, jobUrl: 'https://jobs.ashbyhq.com/ash/x', publishedAt: new Date(feedNow - day).toISOString(), descriptionPlain: 'React', compensation: { scrapeableCompensationSalarySummary: '₹20L – ₹30L' } }] }))
-  if (address.includes('api.tavily.com')) return new Response(JSON.stringify({ results: [{ url: 'https://jobs.lever.co/newco/123' }, { url: 'https://jobs.lever.co/paytm/1' }, { url: 'https://example.com/careers' }] }))
+  if (host === 'api.lever.co' && path === '/v0/postings/lev') return new Response(JSON.stringify([{ id: 'l1', text: 'frontend developer', categories: { location: 'bengaluru' }, country: 'IN', hostedUrl: 'https://jobs.lever.co/lev/l1', createdAt: feedNow - day, descriptionPlain: 'React and Redux', lists: [{ text: 'You have', content: '<li>2+ years</li>' }] }]))
+  if (host === 'api.ashbyhq.com' && path === '/posting-api/job-board/ash') return new Response(JSON.stringify({ jobs: [{ id: 'x', title: 'React Developer', location: 'Remote', secondaryLocations: [], address: { postalAddress: { addressCountry: 'India' } }, isRemote: true, isListed: true, jobUrl: 'https://jobs.ashbyhq.com/ash/x', publishedAt: new Date(feedNow - day).toISOString(), descriptionPlain: 'React', compensation: { scrapeableCompensationSalarySummary: '₹20L – ₹30L' } }] }))
+  if (host === 'api.tavily.com') return new Response(JSON.stringify({ results: [{ url: 'https://jobs.lever.co/newco/123' }, { url: 'https://jobs.lever.co/paytm/1' }, { url: 'https://example.com/careers' }] }))
   return new Response('{}', { status: 404 })
 }
 const leverJobs = await readFeed('lever', 'lev', 'Lev', { fetchImpl: feedFetch })
