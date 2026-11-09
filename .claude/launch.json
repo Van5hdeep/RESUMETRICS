@@ -2,6 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     { "name": "web", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 5173 },
-    { "name": "api", "runtimeExecutable": "npm", "runtimeArgs": ["run", "server"], "port": 8787 }
+    { "name": "api", "runtimeExecutable": "npm", "runtimeArgs": ["run", "server"], "port": 8787 },
+    { "name": "shots", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "--config", "scripts/landing-shots/vite.config.js"], "port": 5198 }
   ]
 }

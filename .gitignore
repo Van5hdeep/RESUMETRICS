@@ -54,3 +54,6 @@ dashboard-integration-snippet.txt
 .env.vercel
 
 .vercel
+
+# Local launch-video output
+brag-output/
