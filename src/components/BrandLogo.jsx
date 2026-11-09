@@ -31,17 +31,25 @@ export function BrandMark({ className = '' }) {
  * Size it with font-size; colour the name with `color` and the mark with `--brand-mark` (defaults to the accent).
  * animate: true plays the entrance on every mount; "once" plays it the first time this session (the sidebar is
  * rebuilt on every page, and replaying there would be noise), until resetLogoIntro() on log out.
+ * reveal: only the R shows; the (dot and) name slide out from behind it while the logo is hovered or its link has
+ * keyboard focus, and slide back when the pointer leaves. On touch screens, which can't hover, the name stays out.
  */
-export default function BrandLogo({ className = '', animate = false, wordmark = true, dot = false, name = 'default' }) {
+export default function BrandLogo({ className = '', animate = false, wordmark = true, dot = false, reveal = false, name = 'default' }) {
   const [play] = useState(() => animate === true || (animate === 'once' && !readPlayed().includes(name)))
   useEffect(() => {
     if (animate === 'once' && play) markPlayed(name)
   }, [animate, play, name])
-  return <span className={`brand-logo${play ? ' brand-logo--animate' : ''}${dot && wordmark ? ' brand-logo--dot' : ''} ${className}`.trim()} role="img" aria-label="Resumetrics">
-    <BrandMark />
-    {dot && wordmark && <span className="brand-logo-dot" aria-hidden="true" />}
-    {wordmark && <span className="brand-logo-word" aria-hidden="true">
+  const classes = ['brand-logo', play && 'brand-logo--animate', dot && wordmark && 'brand-logo--dot', reveal && wordmark && 'brand-logo--reveal', className].filter(Boolean).join(' ')
+  const tail = <>
+    {dot && <span className="brand-logo-dot" aria-hidden="true" />}
+    <span className="brand-logo-word" aria-hidden="true">
       {WORD.map((letter, index) => <span key={index} style={{ '--n': index }}>{letter}</span>)}
-    </span>}
+    </span>
+  </>
+  return <span className={classes} role="img" aria-label="Resumetrics">
+    <BrandMark />
+    {wordmark && (reveal
+      ? <span className="brand-logo-tail"><span className="brand-logo-tail-inner">{tail}</span></span>
+      : tail)}
   </span>
 }

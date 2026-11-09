@@ -240,7 +240,7 @@
 /* Sidebar redesign: grouped navigation, recent resumes and an account card. */
 .app-shell, .dashboard-shell { grid-template-columns: 264px minmax(0, 1fr); }
 .app-shell .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 8px 14px 14px; border-right: 1px solid #e9ebf3; color: #172033; background: #f7f7fb; }
-.app-shell .sidebar .brand { height: 52px; margin: 0 0 16px; justify-content: center; border-bottom: 0; }
+.app-shell .sidebar .brand { height: 52px; margin: 0 0 16px; padding: 0 12px; justify-content: flex-start; border-bottom: 0; }
 .app-shell .sidebar .brand .brand-logo { font-size: 25px; }
 .sidebar-scroll { flex: 1; min-height: 0; display: grid; align-content: start; gap: 16px; margin: 0 -6px; padding: 0 6px 8px; overflow-y: auto; scrollbar-width: thin; }
 .sidebar-label { display: block; margin: 0 0 8px 12px; color: #8a93a8; font-size: 11.5px; font-weight: 650; letter-spacing: 0; }

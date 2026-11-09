@@ -22,6 +22,30 @@
 @keyframes brand-mark-in { from { opacity: 0; transform: translateY(-.25em) rotate(-10deg) scale(.7); } }
 @keyframes brand-letter-in { from { opacity: 0; transform: translateY(.35em); filter: blur(4px); } }
 
+/* Reveal on hover: only the R shows. Pointing at it (or keyboard focus on its link) tilts the R once and slides the
+   dot and name out from behind it; leaving slides them back. The tail opens from zero width, so the R never moves. */
+.brand-logo--reveal { --brand-tail-width: 5em; }
+.brand-logo--reveal.brand-logo--dot { gap: 0; }
+.brand-logo--reveal .brand-logo-tail { display: inline-flex; overflow: hidden; max-width: 0; transition: max-width .34s cubic-bezier(.22, .9, .28, 1); }
+.brand-logo--reveal .brand-logo-tail-inner { display: inline-flex; align-items: center; gap: .12em; padding-left: .14em; opacity: 0; transform: translateX(-.7em); transition: transform .34s cubic-bezier(.22, .9, .28, 1), opacity .2s ease; }
+.brand-logo--reveal:hover .brand-logo-tail, :focus-visible > .brand-logo--reveal .brand-logo-tail { max-width: var(--brand-tail-width); }
+.brand-logo--reveal:hover .brand-logo-tail-inner, :focus-visible > .brand-logo--reveal .brand-logo-tail-inner { opacity: 1; transform: none; }
+.brand-logo--reveal:hover .brand-logo-mark { animation: brand-mark-nudge .5s cubic-bezier(.2, .9, .25, 1.2); transform-origin: 40% 70%; }
+@keyframes brand-mark-nudge { 35% { transform: rotate(-9deg) translateY(-.05em); } 70% { transform: rotate(3deg); } }
+/* The first time this session (animate="once"), the name peeks out after the R lands, then tucks back in. Only the
+   start is held (backwards), so hovering works normally once it ends. */
+.brand-logo--reveal.brand-logo--animate .brand-logo-tail { animation: brand-tail-peek 2.2s cubic-bezier(.22, .9, .28, 1) .5s backwards; }
+.brand-logo--reveal.brand-logo--animate .brand-logo-tail-inner { animation: brand-tail-inner-peek 2.2s cubic-bezier(.22, .9, .28, 1) .5s backwards; }
+@keyframes brand-tail-peek { 0% { max-width: 0; } 18%, 78% { max-width: var(--brand-tail-width); } 100% { max-width: 0; } }
+@keyframes brand-tail-inner-peek { 0% { opacity: 0; transform: translateX(-.7em); } 18%, 78% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateX(-.7em); } }
+/* Touch screens can't hover: keep the name out there. */
+@media (hover: none) {
+  .brand-logo--reveal .brand-logo-tail { max-width: var(--brand-tail-width); }
+  .brand-logo--reveal .brand-logo-tail-inner { opacity: 1; transform: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .brand-logo--animate .brand-logo-mark, .brand-logo--animate .brand-logo-dot, .brand-logo--animate .brand-logo-word > span { animation: none; }
+  .brand-logo--reveal .brand-logo-tail, .brand-logo--reveal .brand-logo-tail-inner { transition: none; animation: none; }
+  .brand-logo--reveal:hover .brand-logo-mark { animation: none; }
 }
