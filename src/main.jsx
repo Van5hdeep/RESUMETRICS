@@ -17,7 +17,7 @@ import './github-evidence.css'
 import './linkedin-evidence.css'
 import './ai-assistant.css'
 import './resume-builder.css'
-import logo from './assets/resumetrics-logo.png'
+import BrandLogo from './components/BrandLogo.jsx'
 import ResumeStartOptions, { FileTypeIcon } from './components/ResumeStartOptions.jsx'
 import ResumeExtractionReview from './components/ResumeExtractionReview.jsx'
 import NimbusChat from './components/nimbus/NimbusChat.jsx'
@@ -1039,7 +1039,7 @@ function Shell({ children, immersive = false, dashboard = false, studio = false 
   return <div className={`app-shell${immersive ? ' editor-shell' : ''}${dashboard ? ' dashboard-shell' : ''}${studio ? ' studio-shell' : ''}`}>
     {!immersive && <aside className="sidebar">
       <NavLink to="/dashboard" state={{ refresh: true }} className="brand" aria-label="Resumetrics dashboard">
-        <img src={logo} alt="Resumetrics" />
+        <BrandLogo animate dot />
       </NavLink>
       <div className="sidebar-scroll">
         {navSections.map(section => <div className="sidebar-section" key={section.label}>

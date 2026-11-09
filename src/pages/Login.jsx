@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import logo from '../assets/resumetrics-logo.png'
+import BrandLogo from '../components/BrandLogo.jsx'
 import './login.css'
 
 // The approval stamp plays for this long before the page transitions into the workspace.
@@ -112,7 +112,7 @@ export default function Login() {
     <div className="login-shell">
       <section className={`login-panel${authStage !== 'idle' ? ' login-panel--approved' : ''}`} aria-labelledby={authStage === 'idle' ? 'login-title' : undefined} aria-label={authStage === 'idle' ? undefined : 'Signed in'}>
         {authStage !== 'idle' ? <ApprovalStamp /> : <div className="login-form">
-          <img className="login-logo" src={logo} alt="Resumetrics" />
+          <BrandLogo className="login-logo" animate wordmark={false} />
           <h1 id="login-title">Welcome.</h1>
           <p className="login-subtitle">Sign in to continue to your resume workspace.</p>
           {!isConfigured && <div className="login-setup-note">Authentication is not configured yet. Add the Firebase values from <code>.env.example</code>, then restart Vite.</div>}

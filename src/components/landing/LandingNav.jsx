@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import logo from '../../assets/resumetrics-logo.png'
+import BrandLogo from '../BrandLogo.jsx'
 import LandingIcon from './LandingIcon.jsx'
 import { nav } from './landingContent.js'
 import { onScroll } from './useLenis.js'
@@ -16,7 +16,7 @@ export default function LandingNav() {
     return onScroll(update)
   }, [])
   return <header className={`lp-nav${solid ? ' is-solid' : ''}${open ? ' is-open' : ''}`}>
-    <a href="#top" className="lp-nav-brand" aria-label="Resumetrics home"><img src={logo} alt="Resumetrics" /></a>
+    <a href="#top" className="lp-nav-brand" aria-label="Resumetrics home"><BrandLogo wordmark={false} /></a>
     <nav className="lp-nav-links" aria-label="Page sections">
       {nav.map(([label, href]) => <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>)}
     </nav>
