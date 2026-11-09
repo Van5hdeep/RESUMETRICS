@@ -80,10 +80,12 @@ export const env = Object.freeze({
     timeZone: timeZoneOr('RESUMETRICS_USAGE_TIME_ZONE', 'Asia/Kolkata')
   }),
   // Job tracker (server/jobs). JSearch (OpenWeb Ninja) lists postings from LinkedIn, Glassdoor, Foundit and others;
-  // Tavily fills the boards it misses (LinkedIn job pages, Naukri, Indeed, Internshala). A search is cached so repeats cost nothing.
+  // context.dev reads the listing pages of the boards it misses (Naukri, Indeed, Internshala), with Tavily web search
+  // as the fallback. A search is cached so repeats cost nothing.
   jobs: Object.freeze({
     jsearchKey: process.env.JSEARCH_API_KEY?.trim() ?? '',
     jsearchUrl: process.env.JSEARCH_API_URL?.trim() || 'https://api.openwebninja.com/jsearch/search',
+    contextDevKey: process.env.CONTEXT_DEV_API_KEY?.trim() ?? '',
     tavilyKey: process.env.TAVILY_API_KEY?.trim() ?? '',
     searchesPerDay: positiveInt('RESUMETRICS_JOB_SEARCHES_PER_DAY', 15),
     cacheHours: positiveInt('RESUMETRICS_JOB_CACHE_HOURS', 6)

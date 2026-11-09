@@ -71,6 +71,19 @@ export function createJobStore({ getDb = getConnectionStore, now = () => Date.no
     await stateRef(uid).set({ lastSearch }, { merge: true })
   }
 
+  /**
+   * Rewrites the last search with update(lastSearch) in a transaction, so boards loading side by side don't overwrite
+   * each other's rows. update returns the new search, or null to leave it alone. Resolves what was written (or null).
+   */
+  async function updateLastSearch(uid, update) {
+    return getDb().runTransaction(async transaction => {
+      const snapshot = await transaction.get(stateRef(uid))
+      const next = update(snapshot.exists ? snapshot.data().lastSearch ?? null : null)
+      if (next) transaction.set(stateRef(uid), { lastSearch: next }, { merge: true })
+      return next ?? null
+    })
+  }
+
   async function getCached(hash, maxAgeMs) {
     const snapshot = await getDb().collection('jobCache').doc(hash).get()
     if (!snapshot.exists) return null
@@ -141,7 +154,7 @@ export function createJobStore({ getDb = getConnectionStore, now = () => Date.no
     await savedFor(uid).doc(key).delete()
   }
 
-  return { getState, takeSearch, saveLastSearch, getCached, putCached, getSalary, putSalary, listSaved, saveJob, updateSaved, deleteSaved }
+  return { getState, takeSearch, saveLastSearch, updateLastSearch, getCached, putCached, getSalary, putSalary, listSaved, saveJob, updateSaved, deleteSaved }
 }
 
 export const jobStore = createJobStore()

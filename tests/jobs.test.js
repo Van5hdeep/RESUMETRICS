@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
 import express from 'express'
 import { buildSearchProfile, experienceFit, formatPay, platformOf, roleFromResume, scoreJob, titleFit } from '../shared/jobMatch.js'
-import { estimateSalary, normalizeJSearchJob, normalizeTavilyResult, postingFromSlug, postingFromTitle, searchJSearch, searchTavily } from '../server/jobs/sources.js'
-import { buildRows, cacheKeyOf, createJobSearch, salaryFor } from '../server/jobs/jobSearch.js'
+import { boardListingUrl, estimateSalary, linkedOnPage, normalizeJSearchJob, normalizeListingJob, normalizeTavilyResult, postingFromSlug, postingFromTitle, readBoardListing, searchJSearch, searchTavily } from '../server/jobs/sources.js'
+import { WEB_BOARDS, boardKeyOf, buildRows, cacheKeyOf, createJobSearch, mergeBoardRow, salaryFor } from '../server/jobs/jobSearch.js'
+import { scrapeJson } from '../server/integrations/contextDev.js'
 import { createJobStore, jobKeyOf, validateSavedJob } from '../server/db/jobStore.js'
 import { createResumeStore } from '../server/db/resumeStore.js'
 import { createRequirePro } from '../server/middleware/requirePro.js'
@@ -92,6 +93,23 @@ assert.equal(normalizeTavilyResult({ url: 'https://internshala.com/job/detail/x-
 assert.equal(normalizeTavilyResult({ url: 'http://insecure.example/jobs', title: 'x' }, 'indeed'), null)
 assert.equal(normalizeTavilyResult({ url: 'https://internshala.com/job/detail/a-b-1760000000', title: 'A Job in Pune at B', content: 'OR OR As per my preferences Profile Location All Filters Senior Developer' }, 'internshala').snippet, 'Senior Developer')
 
+// Board listing pages: the board's own search address for the role, place and dates.
+assert.equal(boardListingUrl('naukri', { role: 'Frontend Developer', location: 'Bengaluru, Karnataka', datePosted: 'week' }), 'https://www.naukri.com/frontend-developer-jobs-in-bengaluru?jobAge=7')
+assert.equal(boardListingUrl('naukri', { role: 'Frontend Developer', remote: true, datePosted: 'all' }), 'https://www.naukri.com/frontend-developer-jobs?wfhType=2')
+assert.equal(boardListingUrl('indeed', { role: 'Frontend Developer', location: 'Pune', datePosted: 'today' }), 'https://in.indeed.com/jobs?q=Frontend+Developer&l=Pune&fromage=1')
+assert.equal(boardListingUrl('indeed', { role: 'C++ Developer', remote: true }), 'https://in.indeed.com/jobs?q=C%2B%2B+Developer&l=Remote&fromage=30')
+assert.equal(boardListingUrl('internshala', { role: 'Frontend Developer', location: 'Bengaluru' }), 'https://internshala.com/jobs/keywords-frontend-developer/jobs-in-bangalore/', 'Internshala spells it Bangalore')
+assert.equal(boardListingUrl('internshala', { role: 'Frontend Developer', remote: true }), 'https://internshala.com/jobs/keywords-frontend-developer/work-from-home/')
+
+// Listing cards: a company, a link on the board itself and a related title; vague pay is dropped, Indeed links made stable.
+const card = normalizeListingJob({ title: 'Frontend Developer', company: 'Zeta', location: 'Bengaluru', experience: '1-3 Yrs', salary: '₹8-12 Lacs PA', skills: ['React', 'TypeScript'], url: 'https://www.naukri.com/job-listings-frontend-developer-zeta-111' }, 'naukri', 'Frontend Developer')
+assert.deepEqual([card.company, card.payText, card.snippet], ['Zeta', '₹8-12 Lacs PA', 'Skills: React, TypeScript'])
+assert.equal(normalizeListingJob({ title: 'Frontend Developer', company: 'Zeta', salary: 'Not disclosed', url: 'https://www.naukri.com/job-listings-x-1' }, 'naukri', 'Frontend Developer').payText, '')
+assert.equal(normalizeListingJob({ title: 'Frontend Developer', company: null, url: 'https://www.naukri.com/job-listings-x-1' }, 'naukri', 'Frontend Developer'), null, 'no company, no card')
+assert.equal(normalizeListingJob({ title: 'Frontend Developer', company: 'Ad', url: 'https://ads.example/x' }, 'naukri', 'Frontend Developer'), null, 'links off the board are dropped')
+assert.equal(normalizeListingJob({ title: 'Computer Science Teacher', company: 'School', url: 'https://internshala.com/job/detail/x-1' }, 'internshala', 'Frontend Developer'), null, 'unrelated padding is dropped')
+assert.equal(normalizeListingJob({ title: 'Frontend Developer', company: 'Lenskart', url: 'https://in.indeed.com/rc/clk?jk=2d727f34742cc81c&bb=tracking' }, 'indeed', 'Frontend Developer').url, 'https://in.indeed.com/viewjob?jk=2d727f34742cc81c')
+
 // Salary per card: posted pay first, then the company's median, then the role's median in that city.
 const salaries = { market: { median: 900000, period: 'YEAR', count: 1112, source: 'Glassdoor' }, companies: { acme: { median: 1500000, period: 'YEAR', source: 'Glassdoor' } } }
 assert.equal(salaryFor(paid, salaries, profile).kind, 'posted')
@@ -111,11 +129,37 @@ assert.equal(rows[2].jobs[0].score, null, 'web postings have no description to s
 assert.equal(rows[2].jobs[0].salary.kind, 'company', 'Acme has a company estimate')
 assert.equal(rows[0].jobs[0].key, jobKeyOf('abc=='))
 assert.ok(rows.every(row => !('browse' in row)))
+const [cardRow] = buildRows(profile, { web: [card], salaries })
+assert.ok(cardRow.jobs[0].score > 50, 'listing cards are scored on the skills they list')
+assert.ok(cardRow.jobs[0].matched.includes('React'))
+assert.equal(cardRow.jobs[0].salary.text, '₹8-12 Lacs PA')
+
+// A board's row joins the last search: merged with JSearch's postings for that board, in board order, no longer pending.
+const before = { rows, failures: ['naukri.com'], pendingBoards: ['naukri', 'indeed'] }
+const merged = mergeBoardRow(before, 'naukri', buildRows(profile, { web: [card], salaries })[0])
+assert.deepEqual(merged.rows.map(row => row.platform), ['linkedin', 'naukri', 'internshala', 'company'])
+assert.equal(merged.rows[1].jobs.length, 3, 'the listing card joins the two JSearch and web postings')
+assert.deepEqual(merged.failures, [])
+assert.deepEqual(merged.pendingBoards, ['indeed'])
+const failedBoard = mergeBoardRow({ rows: [], failures: [], pendingBoards: ['indeed'] }, 'indeed', null, true)
+assert.deepEqual([failedBoard.rows, failedBoard.failures, failedBoard.pendingBoards], [[], ['in.indeed.com'], []])
 
 // Sources over fake fetch: the right request, and errors become JobSourceError.
 const calls = []
 const fakeFetch = async (url, init) => {
   calls.push({ url: String(url), init })
+  if (String(url).includes('api.context.dev')) {
+    const page = JSON.parse(init.body).url
+    if (page.includes('indeed')) return new Response(JSON.stringify({ error: 'USAGE_EXCEEDED' }), { status: 402 })
+    const jobs = page.includes('naukri')
+      ? [{ title: 'Frontend Developer', company: 'Zeta', location: 'Bengaluru', skills: ['React'], url: 'https://www.naukri.com/job-listings-frontend-developer-zeta-111' },
+          { title: 'Frontend Developer', company: 'Zeta', url: 'https://www.naukri.com/job-listings-frontend-developer-zeta-111' },
+          { title: 'Accountant', company: 'Ledger', url: 'https://www.naukri.com/job-listings-accountant-ledger-222' },
+          { title: 'Frontend Developer', company: 'Ghost', url: 'https://www.naukri.com/job-listings-frontend-developer-ghost-999' }]
+      : []
+    const markdown = '[Frontend Developer](https://www.naukri.com/job-listings-frontend-developer-zeta-111) [Accountant](https://www.naukri.com/job-listings-accountant-ledger-222)'
+    return new Response(JSON.stringify({ json: { requested: true, success: true, data: { jobs } }, markdown: { requested: true, success: true, data: markdown }, key_metadata: { credits_consumed: 5, credits_remaining: 95 } }))
+  }
   if (String(url).includes('tavily')) return new Response(JSON.stringify({ results: [{ url: posting.url, title: 'React Developer Job in Bangalore at Acme', content: 'React' }, { url: 'https://internshala.com/jobs/react-jobs', title: 'React Jobs: 77 Vacancies' }] }))
   if (String(url).includes('salary')) return new Response(JSON.stringify({ status: 'OK', data: [{ median_salary: String(url).includes('company=') ? 1500000 : 900000, salary_period: 'YEAR', salary_currency: 'INR', salary_count: 10, publisher_name: 'Glassdoor' }] }))
   return new Response(JSON.stringify({ status: 'OK', data: [raw] }))
@@ -132,6 +176,30 @@ const estimate = await estimateSalary({ jobTitle: 'SDE', location: 'Bengaluru, I
 assert.match(calls[2].url, /^https:\/\/jsearch\.test\/jsearch\/company-job-salary\?.*company=Google/)
 assert.equal(estimate.median, 1500000)
 assert.equal(await estimateSalary({ jobTitle: 'SDE', location: 'x' }, { apiKey: 'k', url: 'https://x/search', fetchImpl: async () => new Response(JSON.stringify({ data: [{ median_salary: 5, salary_currency: 'USD' }] })) }), null, 'only rupee estimates')
+// context.dev: the key in a Bearer header, the page and schema in the body; errors keep their meaning.
+calls.length = 0
+const listed = await readBoardListing({ platform: 'naukri', role: 'Frontend Developer', location: 'Bengaluru' }, { apiKey: 'ctx', fetchImpl: fakeFetch })
+assert.equal(calls[0].url, 'https://api.context.dev/v1/web/scrape')
+assert.equal(calls[0].init.headers.Authorization, 'Bearer ctx')
+const scrapeBody = JSON.parse(calls[0].init.body)
+assert.equal(scrapeBody.url, 'https://www.naukri.com/frontend-developer-jobs-in-bengaluru?jobAge=30')
+assert.deepEqual(scrapeBody.formats, { json: true, markdown: true })
+assert.deepEqual([scrapeBody.sharedParams?.waitFor, scrapeBody.maxAgeMs], [4000, 0], 'Naukri is read fresh, after its cards draw')
+await assert.rejects(readBoardListing({ platform: 'internshala', role: 'Frontend Developer' }, { apiKey: 'ctx', fetchImpl: fakeFetch }), /found no postings/, 'an empty read is a failure, not an empty row')
+assert.equal(scrapeBody.jsonParams.schema.properties.jobs.type, 'array')
+assert.deepEqual(listed.map(item => item.company), ['Zeta'], 'duplicates, unrelated jobs and links not on the page are dropped')
+// Indeed: real cards link through its click tracker; planted copies link straight to a made-up id.
+const indeedPage = '[Frontend Developer](https://in.indeed.com/rc/clk?jk=c1f5a7618db0f07e&bb=x) [Frontend Developer](https://in.indeed.com/viewjob?jk=fedcba9876543210)'
+assert.equal(linkedOnPage('https://in.indeed.com/viewjob?jk=c1f5a7618db0f07e', indeedPage, 'indeed'), true)
+assert.equal(linkedOnPage('https://in.indeed.com/viewjob?jk=fedcba9876543210', indeedPage, 'indeed'), false, 'the planted card is left out')
+assert.equal(linkedOnPage('https://www.naukri.com/job-listings-x-123', 'no links here', 'naukri'), false)
+assert.equal(linkedOnPage('https://www.naukri.com/job-listings-x-123', '', 'naukri'), true, 'no page text to check against')
+await assert.rejects(readBoardListing({ platform: 'indeed', role: 'x' }, { apiKey: 'ctx', fetchImpl: fakeFetch }), /answered 402/)
+await assert.rejects(scrapeJson({ url: 'https://x', schema: {} }, { apiKey: '' }), error => error.code === 'not_configured')
+await assert.rejects(scrapeJson({ url: 'https://x', schema: {} }, { apiKey: 'k', fetchImpl: async () => new Response('{}', { status: 402 }) }), error => error.code === 'credits')
+await assert.rejects(scrapeJson({ url: 'https://x', schema: {} }, { apiKey: 'k', fetchImpl: async () => new Response(JSON.stringify({ json: { success: false, error_code: 'BLOCKED' } })) }), error => error.code === 'empty' && /BLOCKED/.test(error.message))
+calls.length = 0
+
 await assert.rejects(searchJSearch({ query: 'q' }, { apiKey: '', url: 'x' }), /not configured/)
 await assert.rejects(searchJSearch({ query: 'q' }, { apiKey: 'k', url: 'https://x', fetchImpl: async () => new Response('{}', { status: 429 }) }), /answered 429/)
 
@@ -139,14 +207,15 @@ await assert.rejects(searchJSearch({ query: 'q' }, { apiKey: 'k', url: 'https://
 const db = createFakeFirestore()
 let clock = Date.UTC(2026, 9, 14, 10)
 const jobs = createJobStore({ getDb: () => db, now: () => clock })
-const config = { jsearchKey: 'k', jsearchUrl: 'https://jsearch.test/search', tavilyKey: 't', cacheHours: 6 }
+const config = { jsearchKey: 'k', jsearchUrl: 'https://jsearch.test/search', contextDevKey: 'ctx', tavilyKey: 't', cacheHours: 6 }
 const search = createJobSearch({ store: jobs, config, fetchImpl: fakeFetch })
 assert.equal(await search.lookup(profile), null)
 calls.length = 0
 const fresh = await search.fetchFresh(profile)
 assert.equal(fresh.jobs.length, 1, 'the same posting from both JSearch queries is kept once')
 assert.ok(calls.some(call => new URL(call.url).searchParams.get('query')?.endsWith('via LinkedIn')))
-assert.equal(fresh.web.length, 1, 'each board keeps only its own posting addresses')
+assert.equal(fresh.web.length, 0, 'the boards load in their own requests')
+assert.ok(!calls.some(call => call.url.includes('tavily') || call.url.includes('context.dev')))
 assert.equal(fresh.salaries.market.median, 900000)
 assert.equal(fresh.salaries.companies.acme.median, 1500000)
 assert.equal(fresh.failures.length, 0)
@@ -158,12 +227,30 @@ assert.ok(await search.lookup(profile), 'cached after a complete search')
 clock += 7 * 3600_000
 assert.equal(await search.lookup(profile), null, 'cache expires')
 assert.notEqual(cacheKeyOf(profile), cacheKeyOf({ ...profile, remote: true }))
-const flaky = createJobSearch({ store: jobs, config, fetchImpl: async url => (String(url).includes('tavily') ? new Response('{}', { status: 500 }) : fakeFetch(url, {})) })
+const flaky = createJobSearch({ store: jobs, config, fetchImpl: async (url, init) => (String(url).includes('LinkedIn') ? new Response('{}', { status: 500 }) : fakeFetch(url, init)) })
 const partial = await flaky.fetchFresh({ ...profile, role: 'Partial role' })
-assert.equal(partial.failures.length, 3)
+assert.deepEqual(partial.failures, ['LinkedIn'])
 await new Promise(resolve => setTimeout(resolve, 10))
 assert.equal(await flaky.lookup({ ...profile, role: 'Partial role' }), null, 'partial results are not cached')
 await assert.rejects(createJobSearch({ store: jobs, config, fetchImpl: async () => { throw new Error('down') } }).fetchFresh(profile), /could not be reached/)
+
+// Boards: the listing page through context.dev, else a web search of the board; each cached on its own.
+assert.deepEqual(WEB_BOARDS, ['naukri', 'indeed', 'internshala'])
+assert.ok(search.boardsAvailable())
+assert.equal(createJobSearch({ store: jobs, config: { ...config, contextDevKey: '', tavilyKey: '' } }).boardsAvailable(), false)
+calls.length = 0
+const naukriBoard = await search.fetchBoard(profile, 'naukri')
+assert.deepEqual([naukriBoard.source, naukriBoard.web.length], ['listing', 1])
+assert.ok(!calls.some(call => call.url.includes('tavily')))
+const indeedBoard = await search.fetchBoard(profile, 'indeed')
+assert.equal(indeedBoard.source, 'search', 'out of context.dev credits: Tavily searches the board instead')
+await new Promise(resolve => setTimeout(resolve, 10))
+assert.equal((await search.lookupBoard(profile, 'naukri')).web[0].company, 'Zeta')
+assert.notEqual(boardKeyOf(profile, 'naukri'), boardKeyOf(profile, 'indeed'))
+const tavilyOnly = createJobSearch({ store: jobs, config: { ...config, contextDevKey: '' }, fetchImpl: fakeFetch })
+assert.equal((await tavilyOnly.fetchBoard({ ...profile, role: 'Tavily only' }, 'internshala')).source, 'search')
+const unreachable = createJobSearch({ store: jobs, config, fetchImpl: async () => new Response('{}', { status: 500 }) })
+await assert.rejects(unreachable.fetchBoard({ ...profile, role: 'Down' }, 'naukri'), /naukri\.com could not be reached/)
 
 // Saved jobs: only display fields are kept; saving again keeps progress.
 assert.throws(() => validateSavedJob({ title: 'x', url: 'javascript:alert(1)' }), /title and a link/)
@@ -199,6 +286,19 @@ try {
   assert.equal(first.body.search.profile.role, 'React Developer')
   assert.equal(first.body.search.resumeName, 'Main')
   assert.ok(first.body.search.rows.some(row => row.platform === 'linkedin'))
+  assert.deepEqual(first.body.search.pendingBoards, ['naukri', 'indeed', 'internshala'])
+
+  // Boards for that search load one request each and are merged into the kept last search.
+  const terms = { resumeId: RESUME, role: 'React Developer', location: 'Pune' }
+  assert.equal((await call('POST', '/boards/monster', { body: terms })).status, 400)
+  const stale = await call('POST', '/boards/naukri', { body: { ...terms, role: 'Some other search' } })
+  assert.deepEqual([stale.status, stale.body.code], [409, 'stale'], 'only the search just run')
+  const [naukriRow, indeedRow] = await Promise.all([call('POST', '/boards/naukri', { body: terms }), call('POST', '/boards/indeed', { body: terms })])
+  assert.equal(naukriRow.status, 200)
+  assert.equal(naukriRow.body.failed, false)
+  assert.equal(indeedRow.body.failed, false, 'Indeed fell back to a web search')
+  const kept = (await call('GET', '/latest')).body.search
+  assert.deepEqual(kept.pendingBoards, ['internshala'], 'both side-by-side boards were kept')
   await new Promise(resolve => setTimeout(resolve, 10))
   const repeat = await call('POST', '/search', { body: { resumeId: RESUME, role: 'React Developer', location: 'Pune' } })
   assert.equal(repeat.body.search.cached, true)

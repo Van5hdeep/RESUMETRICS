@@ -110,6 +110,11 @@ export async function searchJobs({ resumeId, role, location, remote, datePosted 
   return authenticatedFetch('/api/jobs/search', { method: 'POST', body: JSON.stringify({ resumeId, role, location, remote, datePosted }) })
 }
 
+/** One board's row for the last search (same terms as searchJobs). Resolves { row, failed, failure }. */
+export async function loadJobBoard(platform, { resumeId, role, location, remote, datePosted }) {
+  return authenticatedFetch(`/api/jobs/boards/${encodeURIComponent(platform)}`, { method: 'POST', body: JSON.stringify({ resumeId, role, location, remote, datePosted }) })
+}
+
 export async function listSavedJobs() {
   return (await authenticatedFetch('/api/jobs/saved')).jobs
 }
