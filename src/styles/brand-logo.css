@@ -3,7 +3,7 @@
 
 .brand-logo { display: inline-flex; align-items: center; gap: .3em; color: inherit; font-family: 'Resumetrics Brand', Outfit, Inter, system-ui, sans-serif; font-size: 24px; font-weight: 650; letter-spacing: -.025em; line-height: 1; white-space: nowrap; }
 /* The mark is 1.5x the name's cap height (Outfit caps are .7em). */
-.brand-logo-mark { flex: none; width: auto; height: 1.05em; color: var(--brand-mark, var(--accent, #5b45e4)); overflow: visible; }
+.brand-logo-mark { flex: none; width: auto; height: var(--brand-mark-size, 1.05em); color: var(--brand-mark, var(--accent, #5b45e4)); overflow: visible; }
 .brand-logo-word { display: inline-flex; transform: translateY(.02em); }
 .brand-logo-word > span { display: inline-block; }
 
@@ -23,10 +23,12 @@
 @keyframes brand-letter-in { from { opacity: 0; transform: translateY(.35em); filter: blur(4px); } }
 
 /* Reveal on hover: only the R shows. Pointing at it (or keyboard focus on its link) tilts the R once and slides the
-   dot and name out from behind it; leaving slides them back. The tail opens from zero width, so the R never moves. */
-.brand-logo--reveal { --brand-tail-width: 5em; }
+   dot and name out from behind it; leaving slides them back. The name is an overlay just right of the R, out of the
+   layout, so the R keeps its place (centred, or wherever its container puts it) the whole time. Hovering the open
+   name still counts as hovering the logo. */
+.brand-logo--reveal { position: relative; --brand-tail-width: 5em; }
 .brand-logo--reveal.brand-logo--dot { gap: 0; }
-.brand-logo--reveal .brand-logo-tail { display: inline-flex; overflow: hidden; max-width: 0; transition: max-width .34s cubic-bezier(.22, .9, .28, 1); }
+.brand-logo--reveal .brand-logo-tail { position: absolute; top: 50%; left: 100%; display: inline-flex; overflow: hidden; max-width: 0; transform: translateY(-50%); transition: max-width .34s cubic-bezier(.22, .9, .28, 1); }
 .brand-logo--reveal .brand-logo-tail-inner { display: inline-flex; align-items: center; gap: .12em; padding-left: .14em; opacity: 0; transform: translateX(-.7em); transition: transform .34s cubic-bezier(.22, .9, .28, 1), opacity .2s ease; }
 .brand-logo--reveal:hover .brand-logo-tail, :focus-visible > .brand-logo--reveal .brand-logo-tail { max-width: var(--brand-tail-width); }
 .brand-logo--reveal:hover .brand-logo-tail-inner, :focus-visible > .brand-logo--reveal .brand-logo-tail-inner { opacity: 1; transform: none; }
