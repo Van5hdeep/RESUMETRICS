@@ -50,6 +50,7 @@ service-account/
 .kiro/
 *.md
 !README.md
+!DESIGN.md
 dashboard-integration-snippet.txt
 .env.vercel
 

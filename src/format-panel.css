@@ -1,7 +1,7 @@
 /* Format panel (right rail) — lean layout. */
 .fp { display: grid; gap: 0; padding-bottom: 20px; }
 .fp-head { position: sticky; top: 0; z-index: 3; display: grid; gap: 6px; padding: 14px 16px 12px; border-bottom: 1px solid var(--studio-line); background: var(--studio-surface); }
-.fp-head h2 { margin: 0; color: var(--studio-muted); font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.fp-head h2 { margin: 0; color: var(--studio-muted); font-size: 11.5px; font-weight: 700; letter-spacing: 0; }
 .fp-scope { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; }
 .fp-scope b { overflow: hidden; color: var(--studio-ink); font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
 .fp-group { display: grid; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--studio-line); }

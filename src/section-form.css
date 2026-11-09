@@ -1,5 +1,5 @@
 /* Section-based resume form (/workspace/build) */
-.section-form { --form-line: #e6e9f1; --form-ink: #13203a; --form-muted: #5b6478; --form-error: #c4322d; --form-good: #1e9c5a; display: flex; flex-direction: column; min-height: 100%; color: var(--form-ink); }
+.section-form { --form-line: #e6e9f1; --form-ink: #13203a; --form-muted: #5b6478; --form-error: var(--danger-strong); --form-good: #1e9c5a; display: flex; flex-direction: column; min-height: 100%; color: var(--form-ink); }
 .form-list-header { padding: 22px 22px 10px; }
 .form-list-header h2 { margin: 0 0 4px; font-size: 20px; letter-spacing: -.01em; }
 .form-list-header p { margin: 0; color: var(--form-muted); font-size: 13px; }
@@ -26,7 +26,7 @@
 .form-overall b { font-size: 14px; }
 .form-overall-bar { grid-column: 1 / -1; height: 6px; overflow: hidden; border-radius: 999px; background: #edf0f5; }
 .form-overall-bar span { display: block; height: 100%; border-radius: inherit; transition: width .3s ease; }
-.form-list-footer .primary-button { width: 100%; justify-content: center; }
+.form-list-footer .btn-primary { width: 100%; justify-content: center; }
 
 /* Section detail */
 .section-form.is-detail { height: 100%; }

@@ -3,7 +3,7 @@
    two places only: the hero line and the closing line. */
 .lp {
   --lp-ink: #1b1508; --lp-ink-2: #3a3226; --lp-muted: #6b6457; --lp-line: #e8e2d4; --lp-paper: #faf8f3; --lp-card: #fff;
-  --lp-mustard: #cf9f35; --lp-honey: #f0c960; --lp-night: #110e1f; --lp-green: #15803d;
+  --lp-mustard: #cf9f35; --lp-honey: #f0c960; --lp-night: #110e1f; --lp-green: var(--success, #15803d);
   --lp-violet: var(--accent, #5b45e4); --lp-violet-rgb: var(--accent-rgb, 91, 69, 228);
   --lp-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --lp-pad: clamp(18px, 5vw, 72px);
@@ -165,7 +165,7 @@
 .lp-bigcta-orbs i:nth-child(2) { right: -10%; bottom: -30%; width: 460px; height: 460px; background: rgba(214, 166, 60, .55); animation-delay: -5s; }
 .lp-bigcta-orbs i:nth-child(3) { top: 30%; right: 30%; width: 260px; height: 260px; background: rgba(224, 85, 154, .22); animation-delay: -9s; }
 .lp-bigcta-box > :not(.lp-bigcta-orbs) { position: relative; }
-.lp-bigcta h2 { max-width: 1100px; font-size: clamp(42px, 8.2vw, 128px); font-weight: 700; letter-spacing: -.055em; line-height: .92; text-transform: uppercase; }
+.lp-bigcta h2 { max-width: 1100px; font-size: clamp(42px, 8.2vw, 128px); font-weight: 700; letter-spacing: -.055em; line-height: .92; }
 .lp-bigcta h2 span { display: block; font-family: var(--lp-serif); font-weight: 400; font-style: italic; letter-spacing: -.03em; color: var(--lp-violet); }
 .lp-bigcta p { max-width: 520px; color: var(--lp-ink-2); font-size: clamp(15.5px, 1.4vw, 18px); line-height: 1.6; }
 .lp-bigcta-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }

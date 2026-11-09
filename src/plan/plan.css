@@ -46,7 +46,7 @@
 /* Pro: a gradient ring and a soft halo, lifted above its neighbours. */
 .plan-card.is-pro { z-index: 1; margin-top: -14px; padding-top: 34px; border: 2px solid transparent; background: linear-gradient(var(--plan-card), var(--plan-card)) padding-box, linear-gradient(140deg, var(--accent-light), #e0559a 55%, #f0a35e) border-box; }
 .plan-card.is-pro::before { content: ''; position: absolute; inset: 18px -8px -16px; z-index: -1; border-radius: 30px; background: linear-gradient(140deg, rgba(var(--accent-rgb), .5), rgba(224, 85, 154, .35), rgba(240, 163, 94, .35)); filter: blur(28px); opacity: .55; }
-.plan-ribbon { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); padding: 5px 14px; border-radius: 999px; color: #fff; background: linear-gradient(135deg, var(--accent-light), #e0559a); box-shadow: 0 8px 18px -8px rgba(224, 85, 154, .8); font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.plan-ribbon { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); padding: 5px 14px; border-radius: 999px; color: #fff; background: linear-gradient(135deg, var(--accent-light), #e0559a); box-shadow: 0 8px 18px -8px rgba(224, 85, 154, .8); font-size: 11.5px; font-weight: 700; letter-spacing: 0; white-space: nowrap; }
 
 .plan-toggle { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 999px; background: var(--plan-soft); box-shadow: inset 0 0 0 1px var(--plan-line); }
 .plan-toggle button { position: relative; z-index: 1; min-width: 74px; padding: 6px 12px; border: 0; border-radius: 999px; color: var(--plan-muted); background: transparent; font-size: 12.5px; font-weight: 650; transition: color .2s ease; }
@@ -69,7 +69,7 @@
 .plan-compare h2, .plan-faq h2 { margin: 0 0 16px; font-size: 21px; font-weight: 650; letter-spacing: -.02em; }
 .plan-compare table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .plan-compare th, .plan-compare td { padding: 13px 12px; border-bottom: 1px solid var(--plan-line); text-align: left; }
-.plan-compare thead th { color: var(--plan-muted); font-size: 12px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; }
+.plan-compare thead th { color: var(--plan-muted); font-size: 12px; font-weight: 650; letter-spacing: 0; }
 .plan-compare tbody th { font-weight: 550; }
 .plan-compare td { width: 22%; font-weight: 650; }
 .plan-compare td:last-child { color: var(--accent-ink); background: rgba(var(--accent-rgb), .04); }
