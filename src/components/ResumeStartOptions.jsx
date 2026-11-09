@@ -105,8 +105,8 @@ export default function ResumeStartOptions({ onImport, onFile, onCreate, onImpor
         {!selectedFile && <div className="upload-meta"><span>Accepted formats: PDF, DOCX, TXT</span><span>Text-based files work best</span></div>}
         {dropError && <p className="upload-error" role="alert">{dropError}</p>}
         {selectedFile && <div className="upload-actions">
-          <button className="secondary-button" type="button" onClick={onImport}>Change file</button>
-          <button className="primary-button" type="button" onClick={onRead}>Read document</button>
+          <button className="btn btn-secondary" type="button" onClick={onImport}>Change file</button>
+          <button className="btn btn-primary" type="button" onClick={onRead}>Read document</button>
         </div>}
       </article>
 

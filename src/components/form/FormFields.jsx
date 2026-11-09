@@ -237,7 +237,7 @@ export function SkillGroupsEditor({ skills = {}, onChange, error }) {
         <div className="form-inline-row">
           <input id="form-skill-rename" autoFocus value={renameDraft} maxLength={40} onChange={event => setRenameDraft(event.target.value)}
             onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); saveRename(key) } if (event.key === 'Escape') setRenaming(null) }} />
-          <button type="button" className="secondary-button" onClick={() => saveRename(key)}>Save</button>
+          <button type="button" className="btn btn-secondary" onClick={() => saveRename(key)}>Save</button>
           <button type="button" className="form-text-button" onClick={() => setRenaming(null)}>Cancel</button>
         </div>
       </div>
@@ -251,7 +251,7 @@ export function SkillGroupsEditor({ skills = {}, onChange, error }) {
       <div className="form-inline-row">
         <input id="form-new-skill-group" value={draft} maxLength={40} placeholder="e.g. Patient care, Culinary skills" aria-label="New skill group name" aria-describedby="form-new-skill-group-hint"
           onChange={event => setDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addGroup(draft) } }} />
-        <button type="button" className="secondary-button" onClick={() => addGroup(draft)}>Add group</button>
+        <button type="button" className="btn btn-secondary" onClick={() => addGroup(draft)}>Add group</button>
       </div>
       <small className="form-hint" id="form-new-skill-group-hint">Name it after your field. It prints on your resume exactly as you type it.</small>
       {message && <small className="form-error" role="alert">{message}</small>}

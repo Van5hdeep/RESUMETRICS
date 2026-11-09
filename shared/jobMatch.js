@@ -80,6 +80,45 @@ export function titleFit(role, title) {
   return wanted.filter(token => have.has(token) || have.has(token.replace(/s$/, ''))).length / wanted.length
 }
 
+// Company names without legal suffixes, so "Zeta Pvt Ltd" and "Zeta" are the same employer.
+const COMPANY_SUFFIX = /\b(private|pvt|limited|ltd|llp|inc|incorporated|corp|corporation|co|company|india|technologies|technology|tech|solutions|services|labs)\b\.?/g
+
+/**
+ * The same opening across sources: its title and employer, normalised ("Sr. React Developer @ Zeta Pvt Ltd" and
+ * "React Developer at Zeta" match). Empty without both, so unknown jobs never merge.
+ */
+export function jobIdentity(job) {
+  const title = titleTokens(job?.title ?? '').filter(token => !/^(sr|senior|jr|junior)\.?$/.test(token)).join(' ').replace(/[^a-z0-9+# ]/g, '').trim()
+  const company = lower(job?.company ?? '').replace(COMPANY_SUFFIX, ' ').replace(/[^a-z0-9]+/g, ' ').trim()
+  return title && company ? `${title}@${company}` : ''
+}
+
+// Job titles that hiring teams use for the same work. A role matching a family's pattern searches its other titles too.
+const ROLE_FAMILIES = [
+  [/\b(react|frontend|front[- ]end|ui developer|angular|vue|next\.?js)\b/, ['Frontend Developer', 'Frontend Engineer', 'React Developer', 'UI Developer', 'Full Stack Developer']],
+  [/\b(full[- ]?stack|mern|mean)\b/, ['Full Stack Developer', 'Full Stack Engineer', 'MERN Stack Developer']],
+  [/\b(backend|back[- ]end|node(\.?js)?|django|spring|golang)\b/, ['Backend Developer', 'Backend Engineer', 'Node.js Developer']],
+  [/\b(android|ios|flutter|react native|mobile)\b/, ['Mobile Developer', 'Android Developer', 'Flutter Developer', 'React Native Developer']],
+  [/\b(data scien|machine learning|ml engineer|ai engineer|deep learning)/, ['Data Scientist', 'Machine Learning Engineer', 'AI Engineer']],
+  [/\b(data analyst|business analyst|bi analyst|analytics|power bi|tableau)\b/, ['Data Analyst', 'Business Analyst', 'BI Analyst']],
+  [/\b(data engineer|etl|big data)\b/, ['Data Engineer', 'Big Data Engineer', 'ETL Developer']],
+  [/\b(devops|sre|site reliability|cloud engineer|platform engineer)\b/, ['DevOps Engineer', 'Site Reliability Engineer', 'Cloud Engineer']],
+  [/\b(qa|quality|test(er|ing)?|sdet|automation)\b/, ['QA Engineer', 'Test Engineer', 'SDET', 'Automation Tester']],
+  [/\b(ui\/ux|ux|product designer|ui designer|interaction designer)\b/, ['UI/UX Designer', 'Product Designer', 'UX Designer']],
+  [/\b(product manager|product owner)\b/, ['Product Manager', 'Associate Product Manager', 'Product Owner']],
+  [/\b(java)\b(?!script)/, ['Java Developer', 'Backend Developer', 'Software Engineer']],
+  [/\b(python)\b/, ['Python Developer', 'Backend Developer', 'Software Engineer']],
+  [/\b(software (engineer|developer)|sde|programmer)\b/, ['Software Engineer', 'Software Developer', 'SDE']]
+]
+
+/** Other titles for the same work as `role` (never the role itself), most common first: "React Developer" → ["Frontend Developer", …]. */
+export function relatedRoles(role) {
+  const text = lower(role)
+  const family = ROLE_FAMILIES.find(([pattern]) => pattern.test(text))?.[1] ?? []
+  const own = new Set(titleTokens(role).join(' ').split(' '))
+  return family.filter(title => lower(title) !== text && titleTokens(title).join(' ') !== [...own].join(' '))
+}
+
 /** "2-4 years", "3+ yrs", "5 to 8 years" in the posting, against the resume's years (0–1; .7 when the posting says nothing). */
 export function experienceFit(years, text) {
   const match = String(text ?? '').match(/(\d{1,2})\s*(?:\+|-|–|to)?\s*(\d{1,2})?\s*\+?\s*(?:years?|yrs?)/i)

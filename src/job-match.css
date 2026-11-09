@@ -28,7 +28,7 @@
 .score-ring-label { position: relative; display: grid; justify-items: center; line-height: 1; }
 .score-ring-label b { font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 .score-ring-label b small { margin-left: 1px; font-size: .5em; font-weight: 650; }
-.score-ring-label > small { margin-top: 4px; color: var(--studio-muted); font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.score-ring-label > small { margin-top: 4px; color: var(--studio-muted); font-size: 11px; font-weight: 600; letter-spacing: 0; }
 .jd-category-bar { height: 8px; overflow: hidden; border-radius: 999px; background: #eef0f5; }
 .jd-category-bar span { display: block; height: 100%; border-radius: inherit; transition: width .6s cubic-bezier(.22, .8, .24, 1); }
 
@@ -41,8 +41,8 @@
 .jd-roles li { display: flex; justify-content: space-between; gap: 10px; color: var(--studio-ink); }
 .jd-roles span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jd-roles em { flex: 0 0 auto; font-style: normal; color: var(--studio-muted); }
-.jd-roles li.is-strong em { color: #15803d; }
-.jd-roles li.is-low em { color: #b45309; }
+.jd-roles li.is-strong em { color: var(--success); }
+.jd-roles li.is-low em { color: var(--warning); }
 .jd-group { display: grid; gap: 6px; }
 .jd-group h4 { margin: 0; color: var(--studio-ink); font-size: 12.5px; font-weight: 700; }
 .jd-adds { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }

@@ -78,7 +78,7 @@
 
 /* ---------- Letter studio ---------- */
 .letter-studio { position: relative; }
-.letter-notice { position: absolute; z-index: 30; top: 58px; left: 50%; display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 14px; background: #fff; border: 1px solid #f2d1ce; border-radius: 10px; box-shadow: 0 8px 24px rgba(23, 32, 51, .14); transform: translateX(-50%); }
+.letter-notice { position: absolute; z-index: 30; top: 58px; left: 50%; display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 14px; background: #fff; border: 1px solid var(--danger-border); border-radius: 10px; box-shadow: 0 8px 24px rgba(23, 32, 51, .14); transform: translateX(-50%); }
 .letter-studio-title { cursor: default; }
 .letter-over { max-width: 560px; margin: -14px auto 28px; padding: 9px 14px; color: #92400e; font-size: 13px; background: #fffbeb; border: 1px solid #f3dca2; border-radius: 10px; }
 

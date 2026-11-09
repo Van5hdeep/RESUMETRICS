@@ -146,8 +146,8 @@ function PhotoCropDialog({ source, shape = 'circle', initialCrop, onApply, onCan
         <span aria-hidden="true">+</span>
       </label>
       <div className="photo-crop-actions">
-        <button className="secondary-button" type="button" onClick={onCancel}>Cancel</button>
-        <button className="primary-button" type="button" onClick={apply} disabled={!offset}>Apply</button>
+        <button className="btn btn-secondary" type="button" onClick={onCancel}>Cancel</button>
+        <button className="btn btn-primary" type="button" onClick={apply} disabled={!offset}>Apply</button>
       </div>
     </div>
   </div>
@@ -176,12 +176,12 @@ export default function ProfilePhotoControls({ photo, onChange, error = '' }) {
   if (!photo?.uploaded && !error) return null
 
   return <aside className="panel section-panel profile-photo-editor" aria-label="Profile photo">
-    <div><span className="eyebrow">PROFILE PHOTO</span><h2>Your photo</h2></div>
+    <div><span className="eyebrow">Profile photo</span><h2>Your photo</h2></div>
     {photo?.uploaded && <div className="profile-photo-summary">
       <img className={`profile-photo-thumb is-${shape === 'circle' ? 'circle' : 'rounded'}`} src={photo.source} alt="Your profile photo as it appears on the resume" />
       <div>
         <p className="muted">Drag and zoom to choose exactly what shows.</p>
-        <button className="secondary-button" type="button" onClick={() => setCropOpen(true)}>Adjust photo</button>
+        <button className="btn btn-secondary" type="button" onClick={() => setCropOpen(true)}>Adjust photo</button>
       </div>
     </div>}
     {error && <p className="profile-photo-error" role="alert">{error}</p>}

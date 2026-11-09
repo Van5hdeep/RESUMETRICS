@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlan } from '../context/PlanContext.jsx'
-import { deleteSavedJob, getLatestJobSearch, listResumes, listSavedJobs, saveJob, searchJobs, updateSavedJob } from '../utils/userApi.js'
-import { JOB_STATUSES, PLATFORMS, PLATFORM_NAMES, buildSearchProfile } from '../../shared/jobMatch.js'
+import { deleteSavedJob, getLatestJobSearch, listResumes, listSavedJobs, loadJobBoard, saveJob, searchJobs, updateSavedJob } from '../utils/userApi.js'
+import { JOB_STATUSES, PLATFORMS, PLATFORM_NAMES, buildSearchProfile, jobIdentity } from '../../shared/jobMatch.js'
 import './jobs.css'
 
 // Job tracker (Pro): openings matched to a saved resume, one row per job board, and a board of saved applications.
@@ -16,6 +16,19 @@ const BOARD_LOGOS = {
   internshala: '/boards/internshala.png', wellfound: '/boards/wellfound.png', instahyre: '/boards/instahyre.jpg', cutshort: '/boards/cutshort.png', apna: '/boards/apna.png', shine: '/boards/shine.png'
 }
 const TOP_PICKS = 3
+const openingOf = job => jobIdentity(job) || job.key
+// Boards load after the main search, this many at a time (context.dev's free plan reads two pages at once).
+const BOARDS_AT_ONCE = 2
+
+/** The search with one board's row swapped in (rows stay in PLATFORMS order) and that board no longer pending. */
+function withBoard(search, platform, row, failure) {
+  const order = PLATFORMS.map(item => item.id)
+  const rows = (search.rows ?? []).filter(item => item.platform !== platform)
+  if (row?.jobs?.length) rows.push(row)
+  rows.sort((a, b) => order.indexOf(a.platform) - order.indexOf(b.platform))
+  const failures = (search.failures ?? []).filter(item => item !== failure)
+  return { ...search, rows, failures: failure ? [...failures, failure] : failures, pendingBoards: (search.pendingBoards ?? []).filter(item => item !== platform) }
+}
 
 function postedAgo(iso) {
   const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000)
@@ -299,6 +312,32 @@ export default function JobTrackerPage() {
     })()
   }, [pro, run])
 
+  // After a search (or on reopening one that was still loading), read its pending boards and merge each row in as it
+  // arrives. A newer search replaces this one, so late answers for an old search are dropped.
+  const boardsFor = useRef('')
+  useEffect(() => {
+    const id = search?.searchedAt
+    const pending = search?.pendingBoards ?? []
+    if (!id || !pending.length || boardsFor.current === id) return
+    boardsFor.current = id
+    const { role, location, remote, datePosted } = search.profile
+    const terms = { resumeId: search.resumeId, role, location, remote, datePosted }
+    const queue = [...pending]
+    const worker = async () => {
+      for (let platform = queue.shift(); platform; platform = queue.shift()) {
+        let row = null
+        let failure = null
+        try {
+          ({ row, failure } = await loadJobBoard(platform, terms))
+        } catch {
+          failure = PLATFORM_NAMES[platform] ?? platform
+        }
+        setSearch(current => (current?.searchedAt === id ? withBoard(current, platform, row, failure) : current))
+      }
+    }
+    for (let index = 0; index < BOARDS_AT_ONCE; index++) worker()
+  }, [search])
+
   useEffect(() => {
     if (!toast) return undefined
     const timer = setTimeout(() => setToast(''), 2600)
@@ -308,16 +347,21 @@ export default function JobTrackerPage() {
   const savedKeys = useMemo(() => new Set(saved.map(job => job.key)), [saved])
   // Searches saved before search pages were dropped can hold rows with no jobs.
   const rows = useMemo(() => (search?.rows ?? []).filter(row => row.jobs?.length), [search])
-  const total = useMemo(() => new Set(rows.flatMap(row => row.jobs.map(job => job.key))).size, [rows])
+  // One opening can sit in several rows (found on several boards); counts and top picks take it once, by its title
+  // and employer (or its key when either is missing).
+  const total = useMemo(() => new Set(rows.flatMap(row => row.jobs.map(openingOf))).size, [rows])
+  const pendingBoards = search?.pendingBoards ?? []
   // Top picks across boards: each job once, with every board's apply link; the first is the highest match.
   const picks = useMemo(() => {
-    const byKey = new Map()
+    const byOpening = new Map()
     for (const row of rows) for (const job of row.jobs) {
       if (job.score === null) continue
-      const entry = byKey.get(job.key) ?? byKey.set(job.key, { job, links: [] }).get(job.key)
-      entry.links.push({ platform: job.platform, url: job.url })
+      const id = openingOf(job)
+      const entry = byOpening.get(id) ?? byOpening.set(id, { job, links: [] }).get(id)
+      if (job.score > entry.job.score) entry.job = job
+      if (!entry.links.some(link => link.platform === job.platform)) entry.links.push({ platform: job.platform, url: job.url })
     }
-    return [...byKey.values()].sort((a, b) => b.job.score - a.job.score).slice(0, TOP_PICKS)
+    return [...byOpening.values()].sort((a, b) => b.job.score - a.job.score).slice(0, TOP_PICKS)
   }, [rows])
   const highestKey = picks[0]?.job.key ?? null
 
@@ -437,9 +481,14 @@ export default function JobTrackerPage() {
           </div>
           {search.failures.length > 0 && <p className="jobs-partial">Some boards didn’t answer this time ({search.failures.join(', ')}). The rest are below.</p>}
           {picks.length > 0 && <TopMatches picks={picks} savedKeys={savedKeys} onToggleSave={toggleSave} />}
-          {rows.length
-            ? rows.map(row => <PlatformRow key={row.platform} row={row} savedKeys={savedKeys} highestKey={highestKey} onToggleSave={toggleSave} />)
-            : <div className="jobs-empty"><SearchIcon /><h3>No openings for this search</h3><p>Try a broader role, another city, or a longer date range.</p></div>}
+          {rows.map(row => <PlatformRow key={row.platform} row={row} savedKeys={savedKeys} highestKey={highestKey} onToggleSave={toggleSave} />)}
+          {pendingBoards.length > 0 && <div className="jobs-skeleton jobs-skeleton-boards" role="status" aria-label={`Reading ${pendingBoards.map(id => PLATFORM_NAMES[id] ?? id).join(', ')}`}>
+            {pendingBoards.map(id => <div key={id} className="jobs-skeleton-row">
+              <p className="jobs-skeleton-label"><PlatformMark platform={id} />Reading {PLATFORM_NAMES[id] ?? id}…</p>
+              <div>{[0, 1, 2].map(card => <i key={card} />)}</div>
+            </div>)}
+          </div>}
+          {!rows.length && !pendingBoards.length && <div className="jobs-empty"><SearchIcon /><h3>No openings for this search</h3><p>Try a broader role, another city, or a longer date range.</p></div>}
         </>}
       </div>}
     {toast && <p className="jobs-toast" role="status">{toast}</p>}

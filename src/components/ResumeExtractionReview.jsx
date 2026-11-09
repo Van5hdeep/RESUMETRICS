@@ -138,6 +138,6 @@ export default function ResumeExtractionReview({ resumeData, uploadedFileName, p
       {customSections.map(([label, items]) => <ReviewSection key={label} label={label} count={items.length}><SimpleList items={items} /></ReviewSection>)}
     </div>
 
-    <div className="state-actions"><button className="secondary-button" onClick={onStartOver}>Start over</button><button className="primary-button" onClick={onContinue}>Choose template</button></div>
+    <div className="state-actions"><button className="btn btn-secondary" onClick={onStartOver}>Start over</button><button className="btn btn-primary" onClick={onContinue}>Choose template</button></div>
   </section>
 }

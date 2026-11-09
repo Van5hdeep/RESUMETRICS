@@ -21,8 +21,8 @@
 .btn-ghost { color: var(--studio-muted, #64708a); background: transparent; }
 .btn-ghost:hover:not(:disabled) { color: var(--studio-ink, #13203a); background: rgba(23, 32, 51, .06); }
 
-.btn-danger { color: #b42318; background: #fff; border-color: #f2d1ce; }
-.btn-danger:hover:not(:disabled) { color: #fff; background: #c4322d; border-color: #c4322d; }
+.btn-danger { color: var(--danger); background: #fff; border-color: var(--danger-border); }
+.btn-danger:hover:not(:disabled) { color: #fff; background: var(--danger-strong); border-color: var(--danger-strong); }
 
 .btn-icon { width: 36px; padding: 0; }
 .btn-icon.btn-sm { width: 30px; }
@@ -35,10 +35,6 @@
 [data-resolved-theme="dark"] .btn-ghost:hover:not(:disabled) { color: #edf1ff; background: rgba(255, 255, 255, .06); }
 [data-resolved-theme="dark"] .btn-danger { color: #ff9ea3; background: #172033; border-color: #4a2a33; }
 
-/* Older class names inside the studio adopt the same look. */
-.studio :is(.primary-button) { border-radius: 10px; background: var(--accent); }
-.studio .primary-button:hover:not(:disabled) { background: var(--accent-strong, #4f3fc0); }
-.studio .secondary-button { border-radius: 10px; }
 @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
 
 /* Studio top bar (simplified) */
@@ -62,7 +58,7 @@
 /* Cloud save status in the studio top bar */
 .save-status { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .save-status-label { overflow: hidden; max-width: 190px; color: var(--studio-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.save-status.is-bad .save-status-label, .save-status.is-conflict > span:first-child { color: #b42318; font-weight: 600; }
+.save-status.is-bad .save-status-label, .save-status.is-conflict > span:first-child { color: var(--danger); font-weight: 600; }
 .save-status.is-conflict { font-size: 12.5px; }
 [data-resolved-theme="dark"] .save-status.is-bad .save-status-label, [data-resolved-theme="dark"] .save-status.is-conflict > span:first-child { color: #ff9ea3; }
 @media (max-width: 760px) { .save-status-label { display: none; } }
@@ -79,6 +75,6 @@
 .version-confirm { display: inline-flex; gap: 4px; }
 .version-empty, .version-notice, .version-foot { margin: 6px 2px; line-height: 1.45; }
 .version-notice { font-size: 12.5px; color: var(--studio-ink); }
-.version-notice.is-bad { color: #b42318; font-weight: 600; }
+.version-notice.is-bad { color: var(--danger); font-weight: 600; }
 [data-resolved-theme="dark"] .version-notice.is-bad { color: #ff9ea3; }
 .version-foot { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--studio-line); }

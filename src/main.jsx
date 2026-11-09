@@ -461,7 +461,7 @@ function GeneralSettingsPanel() {
           </div>
           <div className="settings-form-footer">
             {detailsNotice ? <span role="status">{detailsNotice}</span> : <span>These are saved on this device only.</span>}
-            <button className="primary-button" type="submit" disabled={!detailsChanged}>Save changes</button>
+            <button className="btn btn-primary" type="submit" disabled={!detailsChanged}>Save changes</button>
           </div>
         </form>
         <div className="settings-block">
@@ -2057,7 +2057,7 @@ function MainPage() {
         <h2 id="delete-draft-title">Delete this draft?</h2>
         <p id="delete-draft-description">Your resume and its edits will be removed. This action cannot be undone.</p>
         {!plan.pro && cloud?.id && resumeCompletion(resumeData) >= COUNTED_DELETE_PERCENT && <p className="delete-draft-plan-note" role="note">This resume is {resumeCompletion(resumeData)}% complete, so it will still count as 1 of your {FREE_RESUME_LIMIT} free resumes after you delete it.</p>}
-        <div className="linkedin-import-actions"><button className="secondary-button" type="button" onClick={() => setDeleteConfirmOpen(false)}>Keep draft</button><button className="delete-confirm-button" type="button" onClick={confirmDeleteDraft}>Delete draft</button></div>
+        <div className="linkedin-import-actions"><button className="btn btn-secondary" type="button" onClick={() => setDeleteConfirmOpen(false)}>Keep draft</button><button className="delete-confirm-button" type="button" onClick={confirmDeleteDraft}>Delete draft</button></div>
       </section>
     </div>}
     {discardConfirmOpen && <div className="linkedin-import-backdrop delete-draft-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setDiscardConfirmOpen(false) }}>
@@ -2065,7 +2065,7 @@ function MainPage() {
         <span className="delete-draft-warning">Unsaved form</span>
         <h2 id="discard-form-title">Discard this form and start fresh?</h2>
         <p id="discard-form-description">Going back to templates throws away everything you have filled in for this resume. This cannot be undone.</p>
-        <div className="linkedin-import-actions"><button className="secondary-button" type="button" onClick={() => setDiscardConfirmOpen(false)} autoFocus>Keep filling</button><button className="delete-confirm-button" type="button" onClick={discardFormAndChooseTemplate}>Discard and choose template</button></div>
+        <div className="linkedin-import-actions"><button className="btn btn-secondary" type="button" onClick={() => setDiscardConfirmOpen(false)} autoFocus>Keep filling</button><button className="delete-confirm-button" type="button" onClick={discardFormAndChooseTemplate}>Discard and choose template</button></div>
       </section>
     </div>}
     {printing && TemplateComponent && createPortal(<div className="print-root" aria-hidden="true">
@@ -2118,7 +2118,7 @@ function MainPage() {
   </Shell>
 
   if (!isStepPage) return <Shell>
-    <header className="page-header"><div><span className="eyebrow">WORKSPACE</span><h1>Start a resume.</h1></div></header>
+    <header className="page-header"><div><span className="eyebrow">Workspace</span><h1>Start a resume.</h1></div></header>
     <div className="workspace-grid setup-mode">
       <section className="resume-canvas panel">
         {hiddenInputs}
@@ -2126,12 +2126,12 @@ function MainPage() {
           <span className="upgrade-badge" aria-hidden="true"><Icon name="crown" size={22} /></span>
           <h3>{RESUME_LIMIT_REASON.title}</h3>
           <p>{RESUME_LIMIT_REASON.text}</p>
-          <div className="state-actions"><button className="secondary-button" type="button" onClick={() => navigate('/dashboard')}>Back to dashboard</button><button className="primary-button" type="button" onClick={() => navigate('/plan')}>See plans</button></div>
+          <div className="state-actions"><button className="btn btn-secondary" type="button" onClick={() => navigate('/dashboard')}>Back to dashboard</button><button className="btn btn-primary" type="button" onClick={() => navigate('/plan')}>See plans</button></div>
         </div>}
         {isStartRoute && (plan.canCreateResume || !['initial', 'file-selected'].includes(workspaceMode)) && ['initial', 'file-selected', 'builder', 'editor-ready'].includes(workspaceMode) && <ResumeStartOptions onImport={() => uploadInputRef.current?.click()} onFile={selectUploadFile} onCreate={startFromScratch} onImportLinkedIn={() => linkedinUploadInputRef.current?.click()} selectedFile={workspaceMode === 'file-selected' ? pendingUploadFile : null} onRead={readDocument} />}
         {isStartRoute && workspaceMode === 'extracting' && <div className="flow-loading" aria-live="polite"><div className="flow-loading-card"><DotLottieReact className="flow-loading-animation" src="/loading.lottie" loop autoplay mode="bounce" speed={2} aria-label="Extracting resume data" /><h2>{importSource === 'linkedin' ? 'Reading your LinkedIn profile…' : 'Extracting resume details…'}</h2>{pendingUploadFile && <p className="flow-loading-name">{pendingUploadFile.name}</p>}</div></div>}
         {isStartRoute && workspaceMode === 'extraction-review' && resumeData && <ResumeExtractionReview resumeData={resumeData} uploadedFileName={uploadedFileName} parseMetadata={parseMetadata} onContinue={() => navigate('/workspace/templates')} onStartOver={resetWorkspace} />}
-        {isStartRoute && workspaceMode === 'error' && <div className="flow-error" role="alert"><span className="flow-error-icon" aria-hidden="true">!</span><h3>We could not import that resume.</h3><p>{workspaceError}</p><div className="state-actions"><button className="secondary-button" onClick={resetWorkspace}>Start over</button><button className="primary-button" onClick={() => uploadInputRef.current?.click()}>Try another file</button></div></div>}
+        {isStartRoute && workspaceMode === 'error' && <div className="flow-error" role="alert"><span className="flow-error-icon" aria-hidden="true">!</span><h3>We could not import that resume.</h3><p>{workspaceError}</p><div className="state-actions"><button className="btn btn-secondary" onClick={resetWorkspace}>Start over</button><button className="btn btn-primary" onClick={() => uploadInputRef.current?.click()}>Try another file</button></div></div>}
       </section>
     </div>
     {dialogs}

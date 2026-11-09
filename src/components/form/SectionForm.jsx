@@ -169,7 +169,7 @@ export default function SectionForm({ template, resumeData, onChange, supportsPh
         {supportsPhoto && <fieldset className="form-field form-photo">
           <legend><span className="form-label">Photo<span className="form-optional"> (optional)</span></span></legend>
           <div className="form-photo-actions">
-            <button type="button" className="secondary-button" onClick={onPhotoUpload}>{hasPhoto ? 'Replace photo' : 'Upload JPEG photo'}</button>
+            <button type="button" className="btn btn-secondary" onClick={onPhotoUpload}>{hasPhoto ? 'Replace photo' : 'Upload JPEG photo'}</button>
             {hasPhoto && <button type="button" className="form-text-button" onClick={onPhotoRemove}>Remove</button>}
           </div>
           {photoError && <small className="form-error">{photoError}</small>}
@@ -242,7 +242,7 @@ export default function SectionForm({ template, resumeData, onChange, supportsPh
           {progress.missing.length} mandatory {progress.missing.length === 1 ? 'field' : 'fields'} left.{' '}
           {!showMissing && <button type="button" className="form-text-button" onClick={() => openSection(active.id, true)}>Show me</button>}
         </p>}
-        <button type="button" className="primary-button form-complete" disabled={!complete && !skip}
+        <button type="button" className="btn btn-primary form-complete" disabled={!complete && !skip}
           onClick={() => {
             if (complete) onConfirm(active.id)
             // Skipping drops entries that were added but never filled, so they don't show on the resume.
@@ -285,7 +285,7 @@ export default function SectionForm({ template, resumeData, onChange, supportsPh
     </li>)}</ul>
     <footer className="form-list-footer">
       <div className="form-overall"><span>Required sections</span><b style={{ color: percentColour(overall) }}>{overall}%</b><span className="form-overall-bar"><span style={{ width: `${overall}%`, background: percentColour(overall) }} /></span></div>
-      <button type="button" className="primary-button" onClick={tryContinue}>Continue to editor <span aria-hidden="true">→</span></button>
+      <button type="button" className="btn btn-primary" onClick={tryContinue}>Continue to editor <span aria-hidden="true">→</span></button>
     </footer>
     {blockers && <div className="form-dialog-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setBlockers(null) }}>
       <section className="form-dialog" role="alertdialog" aria-modal="true" aria-labelledby="form-blockers-title" aria-describedby="form-blockers-text">
@@ -297,7 +297,7 @@ export default function SectionForm({ template, resumeData, onChange, supportsPh
             <SectionIcon id={section.id} /><span><b>{section.title}</b><small>{section.progress.missing.length} mandatory {section.progress.missing.length === 1 ? 'field' : 'fields'} left</small></span><span aria-hidden="true">→</span>
           </button>
         </li>)}</ul>
-        <div className="form-dialog-actions"><button type="button" className="secondary-button" onClick={() => setBlockers(null)} autoFocus>Keep filling</button></div>
+        <div className="form-dialog-actions"><button type="button" className="btn btn-secondary" onClick={() => setBlockers(null)} autoFocus>Keep filling</button></div>
       </section>
     </div>}
   </div>

@@ -21,7 +21,7 @@ export default function SubscriptionBlock() {
         {pro ? 'Pro' : 'Free'}
       </span>
       <span className="settings-plan-text"><b>{pro ? `Resumetrics Pro${plan?.term ? ` · ${TERM_LABELS[plan.term]}` : ''}` : 'Free plan'}</b><small>{detail}</small></span>
-      <button className={pro ? 'secondary-button' : 'primary-button'} type="button" onClick={() => navigate('/plan')}>{pro ? 'View plan' : 'Upgrade to Pro'}</button>
+      <button className={pro ? 'btn btn-secondary' : 'btn btn-primary'} type="button" onClick={() => navigate('/plan')}>{pro ? 'View plan' : 'Upgrade to Pro'}</button>
     </div>
   </div>
 }

@@ -255,7 +255,7 @@
 
 .resume-template-meta { padding: 13px 14px 15px; }
 .resume-template-meta h3 { margin: 0 0 4px; }
-.template-category { display: inline-block; margin-top: 9px; color: #6552d8; font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.template-category { display: inline-block; margin-top: 9px; color: #6552d8; font-size: .7rem; font-weight: 800; letter-spacing: 0; }
 
 .template-visual {
   position: relative;
@@ -293,7 +293,7 @@
 .resume-template-header p { margin: 5px 0; color: #59667c; }
 .resume-contact { font-size: .8rem; color: #64718a; }
 .resume-template-section { margin-top: 22px; }
-.resume-template-section h2 { margin: 0 0 8px; color: var(--accent-ink); font-size: .76rem; letter-spacing: .13em; text-transform: uppercase; }
+.resume-template-section h2 { margin: 0 0 8px; color: var(--accent-ink); font-size: .76rem; letter-spacing: 0; }
 .resume-template-section p { margin: 0; white-space: pre-line; }
 .skill-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .skill-list span { padding: 4px 8px; border-radius: 6px; background: var(--accent-soft); color: #4e3cc1; font-size: .78rem; }
@@ -331,7 +331,7 @@
 .resume-start-options .workspace-state-heading { padding: 0 0 18px; }
 
 .template-card-meta { display: grid; gap: 4px; padding: 13px 14px 15px; }
-.template-card-meta small { color: #6552d8; font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.template-card-meta small { color: #6552d8; font-size: .7rem; font-weight: 800; letter-spacing: 0; }
 .template-card-meta strong { color: #14203a; font-size: .96rem; }
 .template-card-meta em { color: #66728a; font-size: .79rem; font-style: normal; line-height: 1.42; }
 
@@ -413,7 +413,7 @@
 .automation-composer .arrow-button { flex: 0 0 auto; }
 
 .template-card-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; }
-.template-card-actions .primary-button { padding: 7px 9px; font-size: .76rem; }
+.template-card-actions .btn-primary { padding: 7px 9px; font-size: .76rem; }
 .template-preview-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(24, 26, 46, .42); }
 .template-preview-modal { width: min(860px, 96vw); max-height: min(860px, 92vh); overflow: auto; padding: 22px; border: 1px solid #dfdaf3; border-radius: 18px; background: #fff; box-shadow: 0 24px 60px rgba(28, 24, 60, .28); }
 .template-preview-modal-header, .template-preview-modal-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
@@ -424,7 +424,7 @@
 .template-live-preview { pointer-events: none; }
 
 .analysis-result-section { margin-top: 13px; }
-.analysis-result-section > strong { display: block; color: #56627a; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; }
+.analysis-result-section > strong { display: block; color: #56627a; font-size: .72rem; letter-spacing: 0; }
 .analysis-result-section .skill-tags { margin-top: 7px; }
 .missing-skills .skill-tags span { color: #9b4b4b; background: #fff1f1; }
 .analysis-result-section ul { margin: 7px 0 0; padding-left: 17px; color: #69758b; font-size: .75rem; line-height: 1.45; }
@@ -436,7 +436,7 @@
 .skill-comparison-progress { display: grid; gap: 12px; margin-top: 11px; }
 .skill-comparison-progress > p { margin: 0 !important; color: #59667d !important; font-size: .78rem !important; }
 .comparison-skill-group { display: grid; gap: 7px; }
-.comparison-skill-group > strong { color: #56627a; font-size: .69rem; letter-spacing: .06em; text-transform: uppercase; }
+.comparison-skill-group > strong { color: #56627a; font-size: .69rem; letter-spacing: 0; }
 .comparison-skill-group .skill-tags { margin-top: 0; }
 .comparison-skill-group small { color: #8a94a6; font-size: .74rem; font-style: italic; }
 .compared-resume-skills span { color: #31675a; background: #eaf7f1; }
@@ -523,7 +523,7 @@
 [data-resolved-theme="dark"] .app-shell .resume-page-scroller { background: #111827; }
 
 /* One A4-style preview, driven by the same template component as the editor. */
-.ats-friendly-badge { padding: 5px 9px; border: 1px solid #c8e7da; border-radius: 999px; background: #effaf5; color: #257057; font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.ats-friendly-badge { padding: 5px 9px; border: 1px solid #c8e7da; border-radius: 999px; background: #effaf5; color: #257057; font-size: .72rem; font-weight: 800; letter-spacing: 0; }
 .template-position { color: #758198; font-size: .82rem; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 650px) {
@@ -830,7 +830,7 @@
 .extraction-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
 .extraction-section { min-width: 0; padding: 18px 20px; border: 1px solid #e8ebf3; border-radius: 16px; background: #fff; }
 .extraction-section.is-wide { grid-column: 1 / -1; }
-.extraction-section h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #7a8499; font-size: 12px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+.extraction-section h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: #7a8499; font-size: 12px; font-weight: 750; letter-spacing: 0; }
 .extraction-section h3 span { min-width: 22px; padding: 1px 7px; border-radius: 999px; color: var(--accent); background: var(--accent-soft); font-size: 11.5px; letter-spacing: 0; text-align: center; }
 .extraction-summary-text { margin: 0; color: #3d4860; font-size: 14.5px; line-height: 1.6; }
 .extraction-more { margin-top: 14px; padding: 0; border: 0; color: var(--accent); background: transparent; font: inherit; font-size: 13.5px; font-weight: 650; cursor: pointer; }
