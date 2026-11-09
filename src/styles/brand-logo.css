@@ -22,32 +22,42 @@
 @keyframes brand-mark-in { from { opacity: 0; transform: translateY(-.25em) rotate(-10deg) scale(.7); } }
 @keyframes brand-letter-in { from { opacity: 0; transform: translateY(.35em); filter: blur(4px); } }
 
-/* Reveal on hover: only the R shows. Pointing at it (or keyboard focus on its link) tilts the R once and slides the
-   dot and name out from behind it; leaving slides them back. The name is an overlay just right of the R, out of the
-   layout, so the R keeps its place (centred, or wherever its container puts it) the whole time. Hovering the open
-   name still counts as hovering the logo. */
-.brand-logo--reveal { position: relative; --brand-tail-width: 5em; }
+/* Reveal on hover (sidebar). At rest only the R shows, a little left of centre. Pointing at it (or keyboard focus on
+   its link) plays one motion: the R slides left while the dot and name slide right out from behind it, ending as the
+   full lockup centred in its box; leaving plays it back.
+   How: the whole lockup is always laid out (and centred by its container). At rest it is shifted right by
+   50% of its width minus half the R and the rest offset, which puts the R just left of centre, and the name sits
+   translated fully behind the R's right edge (its box clips it). Hovering removes both shifts on the same timing.
+   Only the R, and the name once open, take the pointer, so empty space beside the R doesn't trigger it. */
+.brand-logo--reveal {
+  --brand-rest-offset: .5em;
+  --brand-ease: cubic-bezier(.22, .9, .28, 1);
+  /* The R is .942 of its height wide (viewBox 79.12 x 84), so half of it is .471 of --brand-mark-size. */
+  --brand-rest-shift: calc(50% - var(--brand-mark-size, 1.05em) * .471 - var(--brand-rest-offset));
+  transform: translateX(var(--brand-rest-shift));
+  transition: transform .42s var(--brand-ease);
+  pointer-events: none;
+}
 .brand-logo--reveal.brand-logo--dot { gap: 0; }
-.brand-logo--reveal .brand-logo-tail { position: absolute; top: 50%; left: 100%; display: inline-flex; overflow: hidden; max-width: 0; transform: translateY(-50%); transition: max-width .34s cubic-bezier(.22, .9, .28, 1); }
-.brand-logo--reveal .brand-logo-tail-inner { display: inline-flex; align-items: center; gap: .12em; padding-left: .14em; opacity: 0; transform: translateX(-.7em); transition: transform .34s cubic-bezier(.22, .9, .28, 1), opacity .2s ease; }
-.brand-logo--reveal:hover .brand-logo-tail, :focus-visible > .brand-logo--reveal .brand-logo-tail { max-width: var(--brand-tail-width); }
+.brand-logo--reveal .brand-logo-mark { pointer-events: auto; }
+.brand-logo--reveal .brand-logo-tail { display: inline-flex; overflow: hidden; pointer-events: none; }
+.brand-logo--reveal .brand-logo-tail-inner { display: inline-flex; align-items: center; gap: .12em; padding-left: .14em; opacity: 0; transform: translateX(-100%); transition: transform .42s var(--brand-ease), opacity .3s ease; }
+.brand-logo--reveal:hover, :focus-visible > .brand-logo--reveal { transform: none; }
+.brand-logo--reveal:hover .brand-logo-tail, :focus-visible > .brand-logo--reveal .brand-logo-tail { pointer-events: auto; }
 .brand-logo--reveal:hover .brand-logo-tail-inner, :focus-visible > .brand-logo--reveal .brand-logo-tail-inner { opacity: 1; transform: none; }
-.brand-logo--reveal:hover .brand-logo-mark { animation: brand-mark-nudge .5s cubic-bezier(.2, .9, .25, 1.2); transform-origin: 40% 70%; }
-@keyframes brand-mark-nudge { 35% { transform: rotate(-9deg) translateY(-.05em); } 70% { transform: rotate(3deg); } }
-/* The first time this session (animate="once"), the name peeks out after the R lands, then tucks back in. Only the
-   start is held (backwards), so hovering works normally once it ends. */
-.brand-logo--reveal.brand-logo--animate .brand-logo-tail { animation: brand-tail-peek 2.2s cubic-bezier(.22, .9, .28, 1) .5s backwards; }
-.brand-logo--reveal.brand-logo--animate .brand-logo-tail-inner { animation: brand-tail-inner-peek 2.2s cubic-bezier(.22, .9, .28, 1) .5s backwards; }
-@keyframes brand-tail-peek { 0% { max-width: 0; } 18%, 78% { max-width: var(--brand-tail-width); } 100% { max-width: 0; } }
-@keyframes brand-tail-inner-peek { 0% { opacity: 0; transform: translateX(-.7em); } 18%, 78% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateX(-.7em); } }
-/* Touch screens can't hover: keep the name out there. */
+/* The first time this session (animate="once"), the same reveal plays after the R lands, holds, and tucks back in.
+   Only the start is held (backwards), so hovering works normally once it ends. */
+.brand-logo--reveal.brand-logo--animate { animation: brand-reveal-peek 2.4s var(--brand-ease) .55s backwards; }
+.brand-logo--reveal.brand-logo--animate .brand-logo-tail-inner { animation: brand-tail-inner-peek 2.4s var(--brand-ease) .55s backwards; }
+@keyframes brand-reveal-peek { 0%, 100% { transform: translateX(var(--brand-rest-shift)); } 20%, 76% { transform: none; } }
+@keyframes brand-tail-inner-peek { 0%, 100% { opacity: 0; transform: translateX(-100%); } 20%, 76% { opacity: 1; transform: none; } }
+/* Touch screens can't hover: show the full lockup there. */
 @media (hover: none) {
-  .brand-logo--reveal .brand-logo-tail { max-width: var(--brand-tail-width); }
+  .brand-logo--reveal { transform: none; }
   .brand-logo--reveal .brand-logo-tail-inner { opacity: 1; transform: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .brand-logo--animate .brand-logo-mark, .brand-logo--animate .brand-logo-dot, .brand-logo--animate .brand-logo-word > span { animation: none; }
-  .brand-logo--reveal .brand-logo-tail, .brand-logo--reveal .brand-logo-tail-inner { transition: none; animation: none; }
-  .brand-logo--reveal:hover .brand-logo-mark { animation: none; }
+  .brand-logo--reveal, .brand-logo--reveal .brand-logo-tail-inner { transition: none; animation: none; }
 }
