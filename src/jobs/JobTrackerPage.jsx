@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlan } from '../context/PlanContext.jsx'
 import { deleteSavedJob, getLatestJobSearch, listResumes, listSavedJobs, loadJobBoard, saveJob, searchJobs, updateSavedJob } from '../utils/userApi.js'
-import { JOB_STATUSES, PLATFORMS, PLATFORM_NAMES, buildSearchProfile } from '../../shared/jobMatch.js'
+import { JOB_STATUSES, PLATFORMS, PLATFORM_NAMES, buildSearchProfile, jobIdentity } from '../../shared/jobMatch.js'
 import './jobs.css'
 
 // Job tracker (Pro): openings matched to a saved resume, one row per job board, and a board of saved applications.
@@ -16,6 +16,7 @@ const BOARD_LOGOS = {
   internshala: '/boards/internshala.png', wellfound: '/boards/wellfound.png', instahyre: '/boards/instahyre.jpg', cutshort: '/boards/cutshort.png', apna: '/boards/apna.png', shine: '/boards/shine.png'
 }
 const TOP_PICKS = 3
+const openingOf = job => jobIdentity(job) || job.key
 // Boards load after the main search, this many at a time (context.dev's free plan reads two pages at once).
 const BOARDS_AT_ONCE = 2
 
@@ -346,17 +347,21 @@ export default function JobTrackerPage() {
   const savedKeys = useMemo(() => new Set(saved.map(job => job.key)), [saved])
   // Searches saved before search pages were dropped can hold rows with no jobs.
   const rows = useMemo(() => (search?.rows ?? []).filter(row => row.jobs?.length), [search])
-  const total = useMemo(() => new Set(rows.flatMap(row => row.jobs.map(job => job.key))).size, [rows])
+  // One opening can sit in several rows (found on several boards); counts and top picks take it once, by its title
+  // and employer (or its key when either is missing).
+  const total = useMemo(() => new Set(rows.flatMap(row => row.jobs.map(openingOf))).size, [rows])
   const pendingBoards = search?.pendingBoards ?? []
   // Top picks across boards: each job once, with every board's apply link; the first is the highest match.
   const picks = useMemo(() => {
-    const byKey = new Map()
+    const byOpening = new Map()
     for (const row of rows) for (const job of row.jobs) {
       if (job.score === null) continue
-      const entry = byKey.get(job.key) ?? byKey.set(job.key, { job, links: [] }).get(job.key)
-      entry.links.push({ platform: job.platform, url: job.url })
+      const id = openingOf(job)
+      const entry = byOpening.get(id) ?? byOpening.set(id, { job, links: [] }).get(id)
+      if (job.score > entry.job.score) entry.job = job
+      if (!entry.links.some(link => link.platform === job.platform)) entry.links.push({ platform: job.platform, url: job.url })
     }
-    return [...byKey.values()].sort((a, b) => b.job.score - a.job.score).slice(0, TOP_PICKS)
+    return [...byOpening.values()].sort((a, b) => b.job.score - a.job.score).slice(0, TOP_PICKS)
   }, [rows])
   const highestKey = picks[0]?.job.key ?? null
 

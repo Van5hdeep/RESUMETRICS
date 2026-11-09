@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
 import express from 'express'
-import { buildSearchProfile, experienceFit, formatPay, platformOf, roleFromResume, scoreJob, titleFit } from '../shared/jobMatch.js'
+import { buildSearchProfile, experienceFit, formatPay, jobIdentity, platformOf, relatedRoles, roleFromResume, scoreJob, titleFit } from '../shared/jobMatch.js'
+import { COMPANY_FEEDS, GREENHOUSE_DETAILS, discoverCompanies, placeFits, readFeed, roleFit, searchCompanyFeeds } from '../server/jobs/companyFeeds.js'
 import { boardListingUrl, estimateSalary, linkedOnPage, normalizeJSearchJob, normalizeListingJob, normalizeTavilyResult, postingFromSlug, postingFromTitle, readBoardListing, searchJSearch, searchTavily } from '../server/jobs/sources.js'
-import { WEB_BOARDS, boardKeyOf, buildRows, cacheKeyOf, createJobSearch, mergeBoardRow, salaryFor } from '../server/jobs/jobSearch.js'
+import { WEB_BOARDS, boardKeyOf, buildRows, cacheKeyOf, createJobSearch, extraQueries, mergeBoardRow, salaryFor, uniqueJobs } from '../server/jobs/jobSearch.js'
 import { scrapeJson } from '../server/integrations/contextDev.js'
 import { createJobStore, jobKeyOf, validateSavedJob } from '../server/db/jobStore.js'
 import { createResumeStore } from '../server/db/resumeStore.js'
@@ -235,9 +236,9 @@ assert.equal(await flaky.lookup({ ...profile, role: 'Partial role' }), null, 'pa
 await assert.rejects(createJobSearch({ store: jobs, config, fetchImpl: async () => { throw new Error('down') } }).fetchFresh(profile), /could not be reached/)
 
 // Boards: the listing page through context.dev, else a web search of the board; each cached on its own.
-assert.deepEqual(WEB_BOARDS, ['naukri', 'indeed', 'internshala'])
-assert.ok(search.boardsAvailable())
-assert.equal(createJobSearch({ store: jobs, config: { ...config, contextDevKey: '', tavilyKey: '' } }).boardsAvailable(), false)
+assert.deepEqual(WEB_BOARDS, ['naukri', 'indeed', 'internshala', 'company'])
+assert.deepEqual(search.availableBoards(), WEB_BOARDS)
+assert.deepEqual(createJobSearch({ store: jobs, config: { ...config, contextDevKey: '', tavilyKey: '' } }).availableBoards(), ['company'], 'employer feeds need no key')
 calls.length = 0
 const naukriBoard = await search.fetchBoard(profile, 'naukri')
 assert.deepEqual([naukriBoard.source, naukriBoard.web.length], ['listing', 1])
@@ -252,7 +253,80 @@ assert.equal((await tavilyOnly.fetchBoard({ ...profile, role: 'Tavily only' }, '
 const unreachable = createJobSearch({ store: jobs, config, fetchImpl: async () => new Response('{}', { status: 500 }) })
 await assert.rejects(unreachable.fetchBoard({ ...profile, role: 'Down' }, 'naukri'), /naukri\.com could not be reached/)
 
-// Saved jobs: only display fields are kept; saving again keeps progress.
+// Related titles: other names for the same work, never the role itself; unknown roles search their top skills.
+assert.deepEqual(relatedRoles('React Developer').slice(0, 2), ['Frontend Developer', 'Frontend Engineer'])
+assert.ok(!relatedRoles('Frontend Developer').includes('Frontend Developer'))
+assert.ok(relatedRoles('Data Analyst').includes('Business Analyst'))
+assert.ok(relatedRoles('Java Developer').includes('Backend Developer'))
+assert.ok(!relatedRoles('JavaScript Developer').includes('Java Developer'), 'JavaScript is not Java')
+assert.deepEqual(relatedRoles('Pastry Chef'), [])
+assert.deepEqual(extraQueries({ role: 'React Developer', location: 'Pune', remote: false, skills: [] }), ['Frontend Developer in Pune', 'Frontend Engineer in Pune'])
+assert.deepEqual(extraQueries({ role: 'Pastry Chef', location: 'Goa', remote: true, skills: ['Baking', 'Chocolate', 'Icing'] }), ['Baking Chocolate jobs remote'])
+calls.length = 0
+await search.fetchFresh({ ...profile, role: 'React Developer' })
+const asked = calls.map(call => new URL(call.url).searchParams.get('query')).filter(Boolean)
+assert.ok(asked.includes('Frontend Developer in Bengaluru') && asked.includes('Frontend Engineer in Bengaluru'), 'related titles are searched too')
+const relatedDown = createJobSearch({ store: jobs, config, fetchImpl: async (url, init) => (String(url).includes('Frontend+Engineer') ? new Response('{}', { status: 500 }) : fakeFetch(url, init)) })
+assert.deepEqual((await relatedDown.fetchFresh({ ...profile, role: 'React Developer', location: 'Delhi' })).failures, [], 'a related search failing is not a board failure')
+
+// The same opening from two sources shows once: by address, or by title and employer (legal suffixes and seniority ignored).
+assert.equal(jobIdentity({ title: 'Sr. React Developer', company: 'Zeta Pvt Ltd' }), jobIdentity({ title: 'React Developer', company: 'Zeta' }))
+assert.notEqual(jobIdentity({ title: 'React Developer', company: 'Zeta' }), jobIdentity({ title: 'Java Developer', company: 'Zeta' }))
+assert.equal(jobIdentity({ title: 'React Developer', company: '' }), '', 'unknown employers never merge')
+const once = uniqueJobs([
+  { key: 'a', title: 'React Developer', company: 'Zeta Technologies', score: null },
+  { key: 'b', title: 'React Developer', company: 'Zeta', score: 80, salary: null },
+  { key: 'c', title: 'Java Developer', company: 'Zeta', score: 40 },
+  { key: 'c', title: 'Java Developer', company: 'Zeta', score: 40 }
+])
+assert.deepEqual(once.map(item => item.key), ['b', 'c'], 'the scored copy is kept')
+
+// Employer job feeds (Greenhouse, Lever, Ashby): exact openings from the companies' own boards, filtered to the search.
+assert.ok(Object.keys(COMPANY_FEEDS.greenhouse).length > 5 && COMPANY_FEEDS.lever.paytm && COMPANY_FEEDS.ashby.sarvam)
+assert.equal(placeFits('Bangalore, KA, India', { location: 'Bengaluru' }), true, 'either spelling')
+assert.equal(placeFits('Pune, India', { location: 'Bengaluru' }), false)
+assert.equal(placeFits('Remote - India', { remote: true }), true)
+assert.equal(placeFits('Remote', { remote: true }), false, 'a bare "Remote" may be another country')
+assert.equal(placeFits('Gurgaon, Haryana', { location: 'Gurugram' }), true)
+assert.equal(roleFit('React Developer', 'Senior Software Engineer (Core Frontier)'), 0, 'generic titles need a specific word')
+assert.ok(roleFit('React Developer', 'Staff Software Engineer - UI') >= .5, 'a related title counts')
+assert.ok(roleFit('React Developer', 'Senior Software Engineer - Fullstack') >= .5, 'Fullstack and Full Stack are one title')
+assert.ok(roleFit('Software Engineer', 'Senior Software Engineer') > 0, 'a generic role matches generic titles')
+const day = 86_400_000
+const feedNow = Date.UTC(2026, 10, 9)
+const feedFetch = async url => {
+  const address = String(url)
+  if (address.includes('greenhouse.io/v1/boards/acme/jobs/11')) return new Response(JSON.stringify({ content: '&lt;p&gt;React, TypeScript and CSS. 1-3 years.&lt;/p&gt;' }))
+  if (address.includes('greenhouse.io/v1/boards/acme/jobs')) return new Response(JSON.stringify({ jobs: [
+    { id: 11, title: 'Frontend Engineer', company_name: 'Acme', location: { name: 'Bangalore, India' }, absolute_url: 'https://job-boards.greenhouse.io/acme/jobs/11', first_published: new Date(feedNow - 2 * day).toISOString() },
+    { id: 12, title: 'Frontend Engineer', company_name: 'Acme', location: { name: 'London, UK' }, absolute_url: 'https://job-boards.greenhouse.io/acme/jobs/12' },
+    { id: 13, title: 'Account Executive', company_name: 'Acme', location: { name: 'Bengaluru' }, absolute_url: 'https://job-boards.greenhouse.io/acme/jobs/13' },
+    { id: 14, title: 'Frontend Developer', company_name: 'Acme', location: { name: 'Bengaluru' }, absolute_url: 'https://job-boards.greenhouse.io/acme/jobs/14', first_published: new Date(feedNow - 90 * day).toISOString() }
+  ] }))
+  if (address.includes('api.lever.co/v0/postings/lev')) return new Response(JSON.stringify([{ id: 'l1', text: 'frontend developer', categories: { location: 'bengaluru' }, country: 'IN', hostedUrl: 'https://jobs.lever.co/lev/l1', createdAt: feedNow - day, descriptionPlain: 'React and Redux', lists: [{ text: 'You have', content: '<li>2+ years</li>' }] }]))
+  if (address.includes('api.ashbyhq.com/posting-api/job-board/ash')) return new Response(JSON.stringify({ jobs: [{ id: 'x', title: 'React Developer', location: 'Remote', secondaryLocations: [], address: { postalAddress: { addressCountry: 'India' } }, isRemote: true, isListed: true, jobUrl: 'https://jobs.ashbyhq.com/ash/x', publishedAt: new Date(feedNow - day).toISOString(), descriptionPlain: 'React', compensation: { scrapeableCompensationSalarySummary: '₹20L – ₹30L' } }] }))
+  if (address.includes('api.tavily.com')) return new Response(JSON.stringify({ results: [{ url: 'https://jobs.lever.co/newco/123' }, { url: 'https://jobs.lever.co/paytm/1' }, { url: 'https://example.com/careers' }] }))
+  return new Response('{}', { status: 404 })
+}
+const leverJobs = await readFeed('lever', 'lev', 'Lev', { fetchImpl: feedFetch })
+assert.deepEqual([leverJobs[0].title, leverJobs[0].location], ['Frontend Developer', 'Bengaluru, India'])
+assert.match(leverJobs[0].description, /React and Redux.*2\+ years/)
+assert.deepEqual(await discoverCompanies({ role: 'React Developer', location: 'Pune' }, { tavilyKey: 't', fetchImpl: feedFetch }), [{ ats: 'lever', slug: 'newco', name: 'Newco' }], 'listed employers and other sites are skipped')
+assert.deepEqual(await discoverCompanies({ role: 'x' }, { tavilyKey: '' }), [])
+const feedProfile = { ...profile, role: 'React Developer', location: 'Bengaluru', datePosted: 'month' }
+const feeds = { greenhouse: { acme: 'Acme', gone: 'Gone' }, lever: { lev: 'Lev' }, ashby: { ash: 'Ash' } }
+const openings = await searchCompanyFeeds(feedProfile, { fetchImpl: feedFetch, now: () => feedNow, feeds })
+assert.deepEqual(openings.map(item => item.url), ['https://job-boards.greenhouse.io/acme/jobs/11', 'https://jobs.lever.co/lev/l1'], 'right city, related title, posted within the month')
+assert.equal(openings[0].platform, 'company')
+assert.match(openings[0].description, /React, TypeScript/, 'Greenhouse matches get their description')
+const remoteOpenings = await searchCompanyFeeds({ ...feedProfile, remote: true }, { fetchImpl: feedFetch, now: () => feedNow, feeds })
+assert.deepEqual(remoteOpenings.map(item => [item.company, item.payText]), [['Ash', '₹20L – ₹30L']])
+await assert.rejects(searchCompanyFeeds(feedProfile, { fetchImpl: async () => new Response('{}', { status: 500 }), feeds }), /no company job board/)
+const [companyRow] = buildRows(feedProfile, { web: openings })
+assert.equal(companyRow.platform, 'company')
+assert.ok(companyRow.jobs.every(item => item.score !== null), 'feed openings are scored on their description')
+assert.ok(GREENHOUSE_DETAILS > 0)
+
 assert.throws(() => validateSavedJob({ title: 'x', url: 'javascript:alert(1)' }), /title and a link/)
 assert.equal(validateSavedJob({ title: 'x', url: 'https://a', logo: 'http://insecure/logo.png', extra: 'dropped' }).logo, '')
 
@@ -286,7 +360,7 @@ try {
   assert.equal(first.body.search.profile.role, 'React Developer')
   assert.equal(first.body.search.resumeName, 'Main')
   assert.ok(first.body.search.rows.some(row => row.platform === 'linkedin'))
-  assert.deepEqual(first.body.search.pendingBoards, ['naukri', 'indeed', 'internshala'])
+  assert.deepEqual(first.body.search.pendingBoards, ['naukri', 'indeed', 'internshala', 'company'])
 
   // Boards for that search load one request each and are merged into the kept last search.
   const terms = { resumeId: RESUME, role: 'React Developer', location: 'Pune' }
@@ -298,7 +372,7 @@ try {
   assert.equal(naukriRow.body.failed, false)
   assert.equal(indeedRow.body.failed, false, 'Indeed fell back to a web search')
   const kept = (await call('GET', '/latest')).body.search
-  assert.deepEqual(kept.pendingBoards, ['internshala'], 'both side-by-side boards were kept')
+  assert.deepEqual(kept.pendingBoards, ['internshala', 'company'], 'both side-by-side boards were kept')
   await new Promise(resolve => setTimeout(resolve, 10))
   const repeat = await call('POST', '/search', { body: { resumeId: RESUME, role: 'React Developer', location: 'Pune' } })
   assert.equal(repeat.body.search.cached, true)

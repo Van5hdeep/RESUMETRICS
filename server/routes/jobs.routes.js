@@ -54,7 +54,7 @@ export function createJobsRouter({ jobs = jobStore, resumes = resumeStore, searc
         raw = await search.fetchFresh(profile)
       }
       // The boards in pendingBoards load next, one request each (POST /boards/:platform), and join these rows.
-      const pendingBoards = search.boardsAvailable() ? [...WEB_BOARDS] : []
+      const pendingBoards = search.availableBoards()
       const result = plain({ resumeId, resumeName: resume.name, profile, rows: buildRows(profile, raw), failures: raw.failures ?? [], pendingBoards, cached, searchedAt: new Date().toISOString() })
       await jobs.saveLastSearch(uid, result).catch(error => console.error('Last job search could not be kept:', error?.message))
       if (left === null) left = searchesLeft(await jobs.getState(uid))

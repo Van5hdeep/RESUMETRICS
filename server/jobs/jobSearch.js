@@ -1,18 +1,36 @@
 // Job tracker search, in two parts so neither runs past the 60 s serverless limit:
-//   1. fetchFresh: resume → search terms → JSearch (Google Jobs, which also fills LinkedIn) and salary estimates.
+//   1. fetchFresh: resume → search terms → JSearch (Google Jobs, which also fills LinkedIn) for the role and up to
+//      two related titles, and salary estimates.
 //   2. fetchBoard, once per board in WEB_BOARDS and in its own request: that board's listing page read through
-//      context.dev, or a Tavily web search of the board when context.dev is not set up or fails.
+//      context.dev, or a Tavily web search of the board when context.dev is not set up or fails; and for "Company
+//      websites", employers' own Greenhouse, Lever and Ashby job feeds (server/jobs/companyFeeds.js).
+// The same opening found twice (by address, or by title and company) is shown once per row.
 // Every posting is scored against the resume (shared/jobMatch.js) and given a salary: the posted pay, or else a
 // Glassdoor median for that company, or for the role in that city. Raw results are cached per set of search terms
 // (and per board), so the same search by anyone in the next few hours costs no API calls; scoring is always redone.
 import { env } from '../config/env.js'
-import { PLATFORMS, formatPay, scoreJob } from '../../shared/jobMatch.js'
+import { PLATFORMS, formatPay, jobIdentity, relatedRoles, scoreJob } from '../../shared/jobMatch.js'
 import { jobKeyOf, jobStore } from '../db/jobStore.js'
 import { JobSourceError, TAVILY_SITES, estimateSalary, readBoardListing, searchJSearch, searchTavily } from './sources.js'
+import { searchCompanyFeeds } from './companyFeeds.js'
 
-/** Boards read one at a time after the main search (their listing pages, or a web search of them). */
-export const WEB_BOARDS = Object.freeze(Object.keys(TAVILY_SITES))
-export const boardLabel = platform => TAVILY_SITES[platform] ?? platform
+/** Boards read one at a time after the main search: the job boards' listing pages, and employers' own job feeds. */
+export const WEB_BOARDS = Object.freeze([...Object.keys(TAVILY_SITES), 'company'])
+export const boardLabel = platform => (platform === 'company' ? 'company job sites' : TAVILY_SITES[platform] ?? platform)
+/** Extra JSearch queries per fresh search, for titles related to the role (one page each). */
+export const RELATED_QUERIES = 2
+
+/** Each opening once: best match first, then dropped when its address or its title and company were already kept. */
+export function uniqueJobs(jobs) {
+  const ranked = [...jobs].sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || Number(Boolean(b.salary)) - Number(Boolean(a.salary)))
+  const seen = new Set()
+  return ranked.filter(job => {
+    const keys = [job.key, jobIdentity(job)].filter(Boolean)
+    if (keys.some(key => seen.has(key))) return false
+    keys.forEach(key => seen.add(key))
+    return true
+  })
+}
 const FALLBACK_BUDGET_MS = 35_000
 
 export class JobSearchError extends Error {
@@ -36,9 +54,20 @@ export function searchQueries(profile) {
   return { jsearch: `${profile.role} ${where}`, linkedin: `${profile.role} ${where} via LinkedIn`, web: `${profile.role} job ${where}` }
 }
 
+/**
+ * Extra JSearch queries for a fresh search: related titles ("React Developer" → "Frontend Developer …"), or with
+ * none known, the resume's top two skills ("Kotlin Spring jobs in Pune").
+ */
+export function extraQueries(profile) {
+  const where = profile.remote ? 'remote' : `in ${profile.location}`
+  const related = relatedRoles(profile.role).slice(0, RELATED_QUERIES).map(title => `${title} ${where}`)
+  if (related.length || profile.skills.length < 2) return related
+  return [`${profile.skills.slice(0, 2).join(' ')} jobs ${where}`]
+}
+
 export function cacheKeyOf(profile) {
   const { jsearch } = searchQueries(profile)
-  return jobKeyOf(JSON.stringify({ v: 3, query: jsearch.toLowerCase(), remote: profile.remote, datePosted: profile.datePosted }))
+  return jobKeyOf(JSON.stringify({ v: 4, query: jsearch.toLowerCase(), remote: profile.remote, datePosted: profile.datePosted }))
 }
 
 export function boardKeyOf(profile, platform) {
@@ -73,20 +102,17 @@ export function buildRows(profile, { jobs = [], web = [], salaries = {} }) {
     for (const option of job.applyOptions) rows.get(option.platform)?.jobs.push({ ...card, platform: option.platform, url: option.url })
   }
   for (const item of web) {
-    const fit = item.skills?.length ? scoreJob(profile, { title: item.title, description: item.skills.join(', '), qualifications: item.experience ?? '' }) : null
+    // Company feeds carry the full description; board cards only the skills they list; web results neither.
+    const text = item.description || (item.skills?.length ? item.skills.join(', ') : '')
+    const fit = text ? scoreJob(profile, { title: item.title, description: text, qualifications: item.experience ?? '' }) : null
     rows.get(item.platform)?.jobs.push({
-      key: jobKeyOf(item.url), title: item.title, company: item.company, logo: '', location: item.location, remote: /remote|work from home/i.test(item.location), type: '', experience: item.experience,
-      postedAt: null, salary: salaryFor(item, salaries, profile), snippet: item.snippet.slice(0, 220), score: fit?.score ?? null,
+      key: jobKeyOf(item.url), title: item.title, company: item.company, logo: '', location: item.location, remote: Boolean(item.remote) || /remote|work from home/i.test(item.location), type: '', experience: item.experience,
+      postedAt: item.postedAt ?? null, salary: salaryFor(item, salaries, profile), snippet: item.snippet.slice(0, 220), score: fit?.score ?? null,
       matched: fit?.matched ?? profile.skills.filter(skill => item.snippet.toLowerCase().includes(skill.toLowerCase())).slice(0, 6), missing: fit?.missing ?? [], source: 'web', platform: item.platform, url: item.url
     })
   }
   return [...rows.values()]
-    .map(row => {
-      const seen = new Set()
-      const unique = row.jobs.filter(job => !seen.has(job.key) && seen.add(job.key))
-      unique.sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
-      return { ...row, jobs: unique }
-    })
+    .map(row => ({ ...row, jobs: uniqueJobs(row.jobs) }))
     .filter(row => row.jobs.length)
 }
 
@@ -97,9 +123,7 @@ export function buildRows(profile, { jobs = [], web = [], salaries = {} }) {
 export function mergeBoardRow(search, platform, row, failed = false) {
   const rows = (search.rows ?? []).filter(item => item.platform !== platform)
   const existing = (search.rows ?? []).find(item => item.platform === platform)
-  const seen = new Set()
-  const jobs = [...(row?.jobs ?? []), ...(existing?.jobs ?? [])].filter(job => !seen.has(job.key) && seen.add(job.key))
-  jobs.sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+  const jobs = uniqueJobs([...(row?.jobs ?? []), ...(existing?.jobs ?? [])])
   if (jobs.length) {
     const order = PLATFORMS.map(item => item.id)
     rows.push({ platform, name: row?.name ?? existing?.name ?? PLATFORMS.find(item => item.id === platform)?.name ?? platform, jobs })
@@ -159,13 +183,23 @@ export function createJobSearch({ store = jobStore, config = env.jobs, fetchImpl
     return { market, companies: Object.fromEntries(companies.map((company, index) => [companyKey(company), byCompany[index]]).filter(([, estimate]) => estimate?.count >= MIN_COMPANY_SALARIES)) }
   }
 
-  /** Both JSearch queries; fails only when both fail. Complete results are cached. */
+  /**
+   * The role's two JSearch queries, plus one page each for related titles (or, with none, the top skills). Fails only
+   * when both main queries fail; a related query that fails just adds nothing. Complete results are cached.
+   */
   async function fetchFresh(profile) {
     const queries = searchQueries(profile)
     const options = { datePosted: profile.datePosted, remote: profile.remote }
-    const settled = await Promise.allSettled([
-      searchJSearch({ query: queries.jsearch, ...options, pages: 2 }, jsearch),
-      searchJSearch({ query: queries.linkedin, ...options, pages: 1 }, jsearch)
+    const extra = extraQueries(profile)
+    const [settled, more] = await Promise.all([
+      Promise.allSettled([
+        searchJSearch({ query: queries.jsearch, ...options, pages: 2 }, jsearch),
+        searchJSearch({ query: queries.linkedin, ...options, pages: 1 }, jsearch)
+      ]),
+      Promise.all(extra.map(query => searchJSearch({ query, ...options, pages: 1 }, jsearch).catch(error => {
+        console.error(`Related search "${query}" failed:`, error?.message)
+        return []
+      })))
     ])
     const labels = ['LinkedIn, Glassdoor and other boards', 'LinkedIn']
     const failures = []
@@ -176,14 +210,14 @@ export function createJobSearch({ store = jobStore, config = env.jobs, fetchImpl
     })
     if (failures.length && settled.every(result => result.status === 'rejected')) throw new JobSearchError('Job boards could not be reached right now. Please try again in a few minutes.')
     const value = index => (settled[index].status === 'fulfilled' ? settled[index].value : [])
-    const jobs = [...new Map([...value(0), ...value(1)].map(job => [job.id, job])).values()]
+    const jobs = [...new Map([...value(0), ...value(1), ...more.flat()].map(job => [job.id, job])).values()]
     const raw = plain({ jobs, web: [], salaries: await estimateSalaries(profile, jobs, []), failures })
     if (!failures.length) store.putCached(cacheKeyOf(profile), raw).catch(error => console.error('Job cache could not be written:', error?.message))
     return raw
   }
 
-  /** Whether any board can be read at all (a listing page or a web search). */
-  const boardsAvailable = () => Boolean(config.contextDevKey || config.tavilyKey)
+  /** Boards that can be read: job boards need context.dev or Tavily; employers' own feeds need nothing. */
+  const availableBoards = () => WEB_BOARDS.filter(platform => platform === 'company' || Boolean(config.contextDevKey || config.tavilyKey))
 
   /** A board's cached postings for these terms ({ platform, web, source }), or null. */
   async function lookupBoard(profile, platform) {
@@ -200,7 +234,14 @@ export function createJobSearch({ store = jobStore, config = env.jobs, fetchImpl
     let web = null
     let source = ''
     const started = Date.now()
-    if (config.contextDevKey) {
+    if (platform === 'company') {
+      try {
+        web = await searchCompanyFeeds(profile, { tavilyKey: config.tavilyKey, fetchImpl })
+        source = 'feeds'
+      } catch (error) {
+        console.error('Company job feeds failed:', error?.message)
+      }
+    } else if (config.contextDevKey) {
       try {
         web = await readBoardListing({ platform, role: profile.role, location: profile.location, remote: profile.remote, datePosted: profile.datePosted }, { apiKey: config.contextDevKey, fetchImpl })
         source = 'listing'
@@ -209,7 +250,7 @@ export function createJobSearch({ store = jobStore, config = env.jobs, fetchImpl
       }
     }
     // The fallback search takes up to 20 s; after a slow listing failure it would run past the 60 s request limit.
-    if (!web && config.tavilyKey && Date.now() - started < FALLBACK_BUDGET_MS) {
+    if (!web && platform !== 'company' && config.tavilyKey && Date.now() - started < FALLBACK_BUDGET_MS) {
       try {
         web = await searchTavily({ query: searchQueries(profile).web, platform, location: profile.location }, { apiKey: config.tavilyKey, fetchImpl })
         source = 'search'
@@ -223,7 +264,7 @@ export function createJobSearch({ store = jobStore, config = env.jobs, fetchImpl
     return raw
   }
 
-  return { lookup, fetchFresh, boardsAvailable, lookupBoard, fetchBoard }
+  return { lookup, fetchFresh, availableBoards, lookupBoard, fetchBoard }
 }
 
 export const jobSearch = createJobSearch()
