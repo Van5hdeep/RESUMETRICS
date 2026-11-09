@@ -1041,6 +1041,7 @@ function Shell({ children, immersive = false, dashboard = false, studio = false 
       <NavLink to="/dashboard" state={{ refresh: true }} className="brand" aria-label="Resumetrics dashboard">
         <BrandLogo animate="once" name="sidebar" dot reveal />
       </NavLink>
+      <hr className="sidebar-divider" />
       <div className="sidebar-scroll">
         {navSections.map(section => <div className="sidebar-section" key={section.label}>
           <span className="sidebar-label">{section.label}</span>
