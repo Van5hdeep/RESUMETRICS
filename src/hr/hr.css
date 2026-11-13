@@ -109,10 +109,13 @@
 /* ---------- shell ---------- */
 .hr-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
 .hr-sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; background: rgba(255, 255, 255, .95); border-right: 1px solid var(--hr-line-2); padding: 0 18px 22px; }
-.hr-sidebar-top { display: flex; align-items: center; justify-content: center; height: 84px; margin: 0 -18px; border-bottom: 1px solid var(--hr-line-2); position: relative; }
-.hr-brand { display: flex; align-items: center; color: var(--hr-ink); text-decoration: none; font-size: 26px; }
+/* The logo row copies the candidate app's sidebar exactly (layout-overrides.css, .app-shell .sidebar .brand):
+   a 52px row, logo left-aligned 26px from the sidebar's edge, 25px logo (20px under 700px wide). */
+.hr-sidebar-top { display: flex; align-items: center; justify-content: flex-start; height: 52px; margin: 8px -4px 16px; padding: 0 12px; position: relative; }
+.hr-brand { display: flex; align-items: center; color: #172033; text-decoration: none; }
+.hr-brand .brand-logo { font-size: 25px; }
 .hr-menu-toggle { display: none; position: absolute; right: 16px; top: 50%; transform: translateY(-50%); border: 1px solid var(--hr-accent-border); background: #fff; color: var(--hr-accent-ink); border-radius: 10px; padding: 6px 12px; font-weight: 650; cursor: pointer; }
-.hr-sidebar-body { display: flex; flex-direction: column; flex: 1; margin-top: 24px; gap: 22px; min-height: 0; }
+.hr-sidebar-body { display: flex; flex-direction: column; flex: 1; gap: 22px; min-height: 0; }
 .hr-nav { display: grid; gap: 5px; }
 .hr-nav a { display: flex; align-items: center; gap: 11px; padding: 12px 13px; border: 1px solid transparent; border-radius: 10px; text-decoration: none; color: #647085; font-size: 14px; transition: .2s ease; }
 .hr-nav a .hr-icon { color: #8893a6; }
@@ -344,9 +347,9 @@
 @media (max-width: 860px) {
   .hr-shell { grid-template-columns: 1fr; }
   .hr-sidebar { position: sticky; height: auto; z-index: 30; padding: 0 18px; border-right: 0; border-bottom: 1px solid var(--hr-line-2); }
-  .hr-sidebar-top { height: 64px; border-bottom: 0; }
+  .hr-sidebar-top { height: 64px; margin: 0 -4px; }
   .hr-shell--menu .hr-sidebar { padding-bottom: 18px; }
-  .hr-shell--menu .hr-sidebar-top { border-bottom: 1px solid var(--hr-line-2); }
+  .hr-shell--menu .hr-sidebar-top { margin-bottom: 8px; }
   .hr-menu-toggle { display: block; }
   .hr-sidebar-body { display: none; margin-top: 14px; }
   .hr-shell--menu .hr-sidebar-body { display: flex; }
@@ -371,4 +374,8 @@
 @media (prefers-reduced-motion: reduce) {
   .hr-app *, .hr-app *::before, .hr-app *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
   .hr-login-row { opacity: 1; }
+}
+/* Same breakpoint and size as the candidate app's sidebar logo on small screens. */
+@media (max-width: 700px) {
+  .hr-brand .brand-logo { font-size: 20px; }
 }
