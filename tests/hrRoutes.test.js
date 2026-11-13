@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import express from 'express'
-import { createHrAuth, hrIdFor, HR_SESSION_MS, configuredHrAccounts } from '../server/hr/hrAuth.js'
+import { bearerToken, createHrAuth, hrIdFor, HR_SESSION_MS, configuredHrAccounts } from '../server/hr/hrAuth.js'
 import { createHrStore } from '../server/db/hrStore.js'
 import { createHrRouter } from '../server/routes/hr.routes.js'
 import { AIBusyError } from '../server/ai/providerBudget.js'
@@ -141,6 +141,21 @@ try {
   // Sessions expire.
   clock += HR_SESSION_MS + 1
   assert.equal((await call('GET', '/openings', { token })).status, 401)
+
+  // Bearer headers are parsed without a regular expression; crafted or oversized headers are refused quickly.
+  assert.equal(bearerToken('Bearer abc.def'), 'abc.def')
+  assert.equal(bearerToken('bearer   abc.def  '), 'abc.def')
+  assert.equal(bearerToken('Basic abc'), '')
+  assert.equal(bearerToken(undefined), '')
+  const started = Date.now()
+  assert.equal(bearerToken(`Bearer ${' '.repeat(50_000)}x`), '')
+  assert.ok(Date.now() - started < 50)
+  assert.equal((await call('GET', '/openings', { token: ' '.repeat(5000) })).status, 401)
+
+  // Passwords are compared as salted scrypt keys; absurdly long ones are refused before hashing.
+  assert.equal(auth.checkCredentials('abc@gmail.com', '12345')?.email, 'abc@gmail.com')
+  assert.equal(auth.checkCredentials('abc@gmail.com', '12345 '), null)
+  assert.equal(auth.checkCredentials('abc@gmail.com', 'x'.repeat(10_000)), null)
 
   // Without environment settings the demo account is used.
   assert.deepEqual(configuredHrAccounts({}).map(account => account.email), ['abc@gmail.com'])
