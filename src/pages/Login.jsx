@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import BrandLogo from '../components/BrandLogo.jsx'
 import './login.css'
@@ -126,6 +126,7 @@ export default function Login() {
             <li>Your password stays with Google</li>
             <li>Your resumes stay private to your account</li>
           </ul>
+          <p className="login-hr-link">Hiring? <Link to="/hr/login">Sign in to the HR portal</Link></p>
         </div>}
       </section>
     </div>

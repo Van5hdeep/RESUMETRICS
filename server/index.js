@@ -8,6 +8,7 @@ import nimbusRoutes from './routes/nimbus.routes.js'
 import jdRoutes from './routes/jd.routes.js'
 import userRoutes from './routes/user.routes.js'
 import jobsRoutes from './routes/jobs.routes.js'
+import { createHrRouter } from './routes/hr.routes.js'
 import { createRequirePro } from './middleware/requirePro.js'
 import { initializeFirebaseAdmin, requireUser } from './services/firebaseAdmin.js'
 import { createIpLimiter, createUserAiLimits } from './middleware/limits.js'
@@ -69,6 +70,8 @@ app.use('/api/jd', requireUser, createRequirePro({ feature: 'jobTailoring' }), u
 app.use('/api/jobs', requireUser, createRequirePro({ feature: 'jobTracker' }), smallJson, jobsRoutes)
 // Saved resumes: signed-in users only, scoped to their own uid. Body cap = the 500 KB resume limit plus the request envelope.
 app.use('/api/user', express.json({ limit: '600kb' }), userRoutes)
+// HR portal: its own email + password session (server/hr/hrAuth.js), separate from candidate Firebase accounts.
+app.use('/api/hr', createHrRouter())
 
 try {
   initializeFirebaseAdmin()

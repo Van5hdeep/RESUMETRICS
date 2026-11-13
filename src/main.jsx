@@ -8,6 +8,7 @@ import ProtectedRoute from './components/ProtectedRoute.jsx'
 import UserMenu from './components/UserMenu.jsx'
 import Login from './pages/Login.jsx'
 import LandingPage from './pages/LandingPage.jsx'
+const HrApp = React.lazy(() => import('./hr/HrApp.jsx'))
 import './styles.css'
 import './template.css'
 import './layout-overrides.css'
@@ -2283,6 +2284,8 @@ function App() {
     <Route path="/plan" element={<ProtectedRoute><Shell><PlanPage /></Shell></ProtectedRoute>} />
     <Route path="/jobs" element={<ProtectedRoute><Shell><JobTrackerPage /></Shell></ProtectedRoute>} />
     <Route path="/evaluation" element={<Navigate to="/workspace/evidence" replace />} />
+    {/* HR portal: its own sign-in, layout and styles, loaded only when visited. */}
+    <Route path="/hr/*" element={<React.Suspense fallback={null}><HrApp /></React.Suspense>} />
   </Routes>
 }
 
