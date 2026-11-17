@@ -27,7 +27,8 @@ assert.equal(await recordAiCall({ tokensIn: 5, tokensOut: 5 }), null)
 const app = express()
 app.use('/api/ai', (request, _response, next) => { request.firebaseUser = { uid: request.get('x-test-user') }; next() },
   express.json(), trackAiUsage, async (request, response) => {
-    await new Promise(resolve => setTimeout(resolve, request.body.delay))
+    // The delay comes from the test's own requests; it is capped so no request can hold the server for long.
+    await new Promise(resolve => setTimeout(resolve, Math.min(Math.max(Number(request.body.delay) || 0, 0), 1000)))
     await recordAiCall({ tokensIn: request.body.tokensIn, tokensOut: 10 })
     await Promise.resolve()
     await recordAiCall({ tokensIn: request.body.tokensIn, tokensOut: 10 })

@@ -61,3 +61,16 @@ assert.match((await run(requireUser, requestWith(undefined))).body.error, /AI fe
 assert.match((await run(requireFirebaseUser, requestWith(undefined))).body.error, /GitHub/)
 
 console.log('requireUser: all checks passed')
+
+// The Firebase sign-in header is read without a regular expression: a crafted header can't stall the server.
+{
+  const { bearerToken } = await import('../server/services/bearer.js')
+  assert.equal(bearerToken('Bearer abc.def'), 'abc.def')
+  assert.equal(bearerToken('bearer   abc.def  '), 'abc.def')
+  assert.equal(bearerToken('Basic abc'), '')
+  assert.equal(bearerToken(`Bearer ${'x'.repeat(5000)}`), '', 'oversized headers are refused')
+  const started = Date.now()
+  for (let index = 0; index < 50; index += 1) bearerToken(`Bearer${' '.repeat(4000)}`)
+  assert.ok(Date.now() - started < 50, 'a header full of spaces is handled in linear time')
+  console.log('requireUser bearer parsing: ok')
+}

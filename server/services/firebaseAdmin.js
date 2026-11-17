@@ -4,6 +4,7 @@ import { cert, getApps, initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { env } from '../config/env.js'
+import { bearerToken } from './bearer.js'
 
 export class FirebaseServerConfigurationError extends Error {
   constructor(message) {
@@ -62,11 +63,11 @@ export function getConnectionStore() {
  */
 export function createRequireUser({ signInMessage, unavailableMessage, verify = verifyFirebaseIdToken }) {
   return async function requireUser(request, response, next) {
-    const match = (request.get('authorization') ?? '').match(/^Bearer\s+(.+)$/i)
-    if (!match) return response.status(401).json({ ok: false, error: signInMessage })
+    const token = bearerToken(request.get('authorization'))
+    if (!token) return response.status(401).json({ ok: false, error: signInMessage })
 
     try {
-      request.firebaseUser = await verify(match[1])
+      request.firebaseUser = await verify(token)
       return next()
     } catch (error) {
       if (error instanceof FirebaseServerConfigurationError) {
