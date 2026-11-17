@@ -10,7 +10,10 @@ export const HR_YEARLY_SAVING_PERCENT = Math.round((1 - HR_PRICES.yearly / (HR_P
 export const HR_FREE_OPENING_LIMIT = 2
 
 /** Resumes one opening can hold, on every plan: keeps the AI reading budget bounded. */
-export const HR_RESUMES_PER_OPENING = 50
+export const HR_PRO_RESUMES_PER_OPENING = 50
+
+/** Resumes one opening can hold on the free plan. */
+export const HR_FREE_RESUMES_PER_OPENING = 5
 
 /**
  * hrAccounts/{hrId}.plan = { tier: 'free' | 'pro', status: 'active' | ..., term: 'monthly' | 'yearly', currentPeriodEnd }.
@@ -21,6 +24,11 @@ export function isHrPro(plan, now = Date.now()) {
   if (!plan.currentPeriodEnd) return true
   const end = Date.parse(plan.currentPeriodEnd)
   return Number.isFinite(end) && end > now
+}
+
+/** Resumes each opening of this account can hold: 5 on Free, 50 on Hiring Pro. */
+export function resumesPerOpening(plan, now = Date.now()) {
+  return isHrPro(plan, now) ? HR_PRO_RESUMES_PER_OPENING : HR_FREE_RESUMES_PER_OPENING
 }
 
 /** Openings this account may still create: a number, or Infinity on Pro. */

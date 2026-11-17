@@ -36,7 +36,7 @@ An HR session never opens the candidate app, and a candidate Google session neve
 - Accounts sign up through the portal (password stored as a salted scrypt hash). An optional login can also come
   from `RESUMETRICS_HR_EMAIL` / `RESUMETRICS_HR_PASSWORD` in `server/.env.local`. There is no built-in password.
 - `POST /api/hr/auth/demo` opens a private demo workspace (`hrdemo_…` account seeded from `server/hr/demoFixture.json`,
-  made-up people only, free plan, small AI allowance), deleted after 24 hours or on sign-out. (Until 2026-11-17 the demo
+  made-up people only, Hiring Pro until it expires, small AI allowance), deleted after 24 hours or on sign-out. (Until 2026-11-17 the demo
   was one shared login, which let every visitor see and change what others uploaded.)
 - `POST /api/hr/auth/logout` raises the account's session version, ending its tokens on every device;
   `PUT /api/hr/account/password` does the same and returns a new token.
@@ -158,7 +158,7 @@ an upgrade note instead of the New button.
 **Opening (`/hr/openings/:id`)**
 - Header: title, meta, Edit, Delete.
 - Requirements strip (what the scoring uses).
-- Upload zone: drop or choose up to 50 files; a queue shows each file Reading → Scoring → Done / Failed,
+- Upload zone: drop or choose files, up to the plan’s resumes per opening (5 Free, 50 Hiring Pro); a queue shows each file Reading → Scoring → Done / Failed,
   with "waiting for AI capacity (30s)" when throttled.
 - Ranked table: #, candidate (name + headline), score + band, Skills / Experience / Education / Keywords bars,
   must-haves met (4/6), years, missing must-haves. Sortable by score, name and years.

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { hrApi } from './hrApi.js'
 import { useNewOpening } from './HrLayout.jsx'
+import { useHrSession } from './HrApp.jsx'
 import { formatDate, Icon, PageHeader, Pipeline, ScoreMark } from './hrUi.jsx'
 
 const greeting = () => {
@@ -22,6 +23,7 @@ export function useOpenings() {
 }
 
 export default function HrOverview() {
+  const { account } = useHrSession()
   const { openings, error } = useOpenings()
   const { start, atLimit } = useNewOpening()
   const navigate = useNavigate()
@@ -55,7 +57,7 @@ export default function HrOverview() {
         <h2>Start with one job opening</h2>
         <ol className="hr-steps">
           <li><b>Describe the job</b><span>Title, must-have skills, experience and education.</span></li>
-          <li><b>Upload resumes</b><span>Drop in PDF, DOCX or TXT files, up to 50 per opening.</span></li>
+          <li><b>Upload resumes</b><span>Drop in PDF, DOCX or TXT files, up to {account.resumeLimit ?? 5} per opening on your plan.</span></li>
           <li><b>Read the ranking</b><span>Every resume is scored against the job, with the reasons shown.</span></li>
         </ol>
         <button className="hr-btn hr-btn--primary" type="button" onClick={start}><Icon name="plus" />Describe a job</button>

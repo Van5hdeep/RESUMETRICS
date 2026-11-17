@@ -197,6 +197,15 @@ try {
   assert.equal((await call('DELETE', `/openings/${openingId}`, { token })).status, 200)
   assert.equal([...db.docs.keys()].some(key => key.includes(openingId)), false)
   assert.equal((await call('POST', '/openings', { token, body: job({ title: 'QA', mustHave: ['Selenium'] }) })).status, 403)
+  // The account still shows both openings as used, and the overview says the limit is reached.
+  const afterDelete = await call('GET', '/openings', { token })
+  assert.equal(afterDelete.body.openings.length, 1)
+  assert.equal(afterDelete.body.account.openingsCreated, 2)
+  assert.equal(afterDelete.body.account.openingLimit, 2)
+  // Deleting the last one doesn't help either.
+  assert.equal((await call('DELETE', `/openings/${afterDelete.body.openings[0].id}`, { token })).status, 200)
+  assert.equal((await call('GET', '/auth/me', { token })).body.account.openingsCreated, 2)
+  assert.equal((await call('POST', '/openings', { token, body: job({ title: 'QA', mustHave: ['Selenium'] }) })).status, 403)
 
   // Hiring Pro: unlimited openings.
   db.seed(`hrAccounts/${hrId}`, { ...db.read(`hrAccounts/${hrId}`), plan: { tier: 'pro', status: 'active', term: 'monthly', currentPeriodEnd: new Date(clock + 86_400_000).toISOString() } })

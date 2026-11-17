@@ -54,7 +54,19 @@ try {
   assert.equal(visitorA.status, 201)
   assert.equal(visitorA.body.account.email, DEMO_EMAIL)
   assert.equal(visitorA.body.account.demo, true)
-  assert.equal(visitorA.body.account.plan, 'free', 'a demo is never Pro')
+  // A demo is on Hiring Pro until it expires: unlimited openings, but still the small demo AI allowance.
+  assert.equal(visitorA.body.account.plan, 'pro')
+  assert.equal(visitorA.body.account.openingLimit, null)
+  assert.deepEqual(visitorA.body.account.planDetails, { tier: 'pro', status: 'active', term: 'demo', currentPeriodEnd: new Date(clock + HR_DEMO_MS).toISOString() })
+  for (const title of ['Designer', 'QA Engineer', 'Data Analyst']) {
+    assert.equal((await call('POST', '/openings', { token: visitorB.body.token, body: { title, mustHave: ['Excel'] } })).status, 201, 'a demo can go past the free limit of 2')
+  }
+  const demoOpenings = await call('GET', '/openings', { token: visitorB.body.token })
+  assert.equal(demoOpenings.body.openings.length, 4)
+  assert.equal(demoOpenings.body.account.openingsCreated, 4)
+  // Clean up visitor B's extra openings; deleting never lowers the count, even on Pro.
+  for (const opening of demoOpenings.body.openings.filter(item => item.title !== fixture.opening.title)) await call('DELETE', `/openings/${opening.id}`, { token: visitorB.body.token })
+  assert.equal((await call('GET', '/openings', { token: visitorB.body.token })).body.account.openingsCreated, 4)
   assert.equal(visitorA.body.account.canChangePassword, false)
   assert.equal(visitorA.body.account.details.fullName, DEMO_PROFILE.fullName)
   assert.ok(visitorA.body.expiresAt <= clock + HR_DEMO_MS)
