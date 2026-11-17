@@ -100,7 +100,7 @@ try {
     await evaluate(`const box = [...document.querySelectorAll('textarea')].find(t => t.placeholder.startsWith('Paste the job post')); Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, ${JSON.stringify(LETTER_JOB)}); box.dispatchEvent(new Event('input', { bubbles: true }))`)
     await aiPause()
     await click('Write my cover letter')
-    await waitFor(`/Letter guide\\n[1-9]\\d* of \\d+/.test(document.querySelector('.ai-rail').innerText)`, 'cover letter', 150_000)
+    await waitFor(`/Letter guide\\s*[1-9]\\d* of \\d+ checks/.test(document.querySelector('.ai-rail').innerText)`, 'cover letter', 150_000)
     await sleep(1500)
     await shot('letter')
   }
@@ -132,6 +132,21 @@ try {
 
   await goto('/settings', `document.querySelector('.settings-plan-row')`)
   await shot('settings')
+
+  // The HR portal, through its own "Explore the demo" workspace (made-up candidates, kept in the harness's memory).
+  if (wants('hr-overview', 'hr-opening', 'hr-compare')) {
+    await goto('/hr/login', `[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Explore the demo')`)
+    await click('Explore the demo')
+    await waitFor(`location.pathname === '/hr' && document.querySelector('.hr-figures') && !document.querySelector('.hr-loading')`, 'HR overview')
+    await sleep(800)
+    await shot('hr-overview')
+    await evaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Review').click()`)
+    await waitFor(`document.querySelector('.hr-table--ranked tbody tr') && document.querySelector('.hr-scatter')`, 'HR opening')
+    await sleep(1200)
+    await shot('hr-opening')
+    await scrollTo('.hr-scatter')
+    await shot('hr-compare')
+  }
 } finally {
   page.close()
 }

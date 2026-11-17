@@ -5,6 +5,7 @@ import ResumeWriter from '../components/landing/ResumeWriter.jsx'
 import StatsBand from '../components/landing/StatsBand.jsx'
 import NimbusSection from '../components/landing/NimbusSection.jsx'
 import ScreenSlider from '../components/landing/ScreenSlider.jsx'
+import HiringSection from '../components/landing/HiringSection.jsx'
 import { BigCta, LandingFooter } from '../components/landing/ClosingSections.jsx'
 import useLenis from '../components/landing/useLenis.js'
 import useRevealOnScroll from '../components/landing/useRevealOnScroll.js'
@@ -27,6 +28,7 @@ export default function LandingPage() {
       <StatsBand />
       <NimbusSection />
       <ScreenSlider />
+      <HiringSection />
       <BigCta />
     </main>
     <LandingFooter />
