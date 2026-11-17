@@ -58,6 +58,19 @@ export async function signIn(email, password) {
   return data.account
 }
 
+/** Opens a private demo workspace (made-up data, deleted after a day) and signs in to it. */
+export async function startDemo() {
+  const data = await request('/auth/demo', { method: 'POST' })
+  saveSession({ token: data.token, expiresAt: data.expiresAt, email: data.account.email })
+  return data.account
+}
+
+/** Ends the session on the server (every device; a demo workspace is deleted), then here. Never throws. */
+export async function signOutEverywhere() {
+  try { if (getSession()) await request('/auth/logout', { method: 'POST' }) } catch { /* the local session ends anyway */ }
+  clearSession()
+}
+
 /** Creates an HR account and signs in. A field problem rejects with error.fields = { fieldName: message }. */
 export async function register(details) {
   const data = await request('/auth/register', { method: 'POST', body: details })
@@ -70,6 +83,12 @@ const id = value => encodeURIComponent(value)
 export const hrApi = {
   me: () => request('/auth/me').then(data => data.account),
   updateDetails: details => request('/account/details', { method: 'PUT', body: details }).then(data => data.account),
+  /** Every other session ends; this one continues with the new token. A field problem rejects with error.fields. */
+  async changePassword(currentPassword, newPassword, confirmPassword) {
+    const data = await request('/account/password', { method: 'PUT', body: { currentPassword, newPassword, confirmPassword } })
+    const session = getSession()
+    saveSession({ token: data.token, expiresAt: data.expiresAt, email: session?.email ?? '' })
+  },
   listOpenings: () => request('/openings'),
   createOpening: fields => request('/openings', { method: 'POST', body: fields }).then(data => data.opening),
   getOpening: openingId => request(`/openings/${id(openingId)}`),

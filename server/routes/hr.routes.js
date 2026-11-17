@@ -3,10 +3,13 @@ import express, { Router } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { env } from '../config/env.js'
 import { AIBusyError } from '../ai/providerBudget.js'
-import { createHrAuth, hashPassword, hrIdFor, verifyPassword } from '../hr/hrAuth.js'
-import { checkHrDetails } from '../../shared/hrRegistration.js'
+import { createHrAuth, DEMO_EMAIL, DEMO_PROFILE, demoIdFor, HR_DEMO_MS, HR_SESSION_MS, hashPassword, hrIdFor, verifyPassword } from '../hr/hrAuth.js'
+import { checkHrDetails, checkNewPassword } from '../../shared/hrRegistration.js'
 import { HR_DOC_ID, HrStoreError, hrStore } from '../db/hrStore.js'
 import { createUserAiLimits } from '../middleware/limits.js'
+import { createFirestoreRateLimitStore } from '../middleware/persistentRateLimit.js'
+import { createDailyTokenBudget, trackAiUsageFor } from '../ai/usage.js'
+import demoFixture from '../hr/demoFixture.json' with { type: 'json' }
 import { normalizeResumeData } from '../services/resumeData.js'
 import { extractCompleteResumeDocument, extractSourceFallbackDocument, normalizeResumeDocument } from '../services/resumeExtraction.js'
 import { candidatesCsv, candidateSummary, rankCandidates, scoreCandidate, weightsFor } from '../../shared/hrScoring.js'
@@ -14,7 +17,27 @@ import { HR_RESUMES_PER_OPENING } from '../../shared/hrPlans.js'
 
 // A resume is a few pages; anything far longer is not a resume and would spend the AI budget for nothing.
 const MAX_RESUME_CHARACTERS = 60_000
-const STATUS = { invalid: 400, plan_limit: 403, not_found: 404, opening_full: 409, duplicate: 409, closed: 409, exists: 409, too_large: 413 }
+const STATUS = { invalid: 400, wrong_password: 400, plan_limit: 403, not_found: 404, opening_full: 409, duplicate: 409, closed: 409, exists: 409, too_large: 413 }
+const hashOf = value => createHash('sha256').update(String(value ?? '').trim().toLowerCase()).digest('hex')
+
+/**
+ * A rate limiter whose counts live in `storeFor(name)` (Firestore by default, so the limit holds across serverless
+ * instances; tests pass a function returning undefined for the in-memory store).
+ */
+function limiter({ name, windowMs, limit, message, keyGenerator, storeFor, failuresOnly = false }) {
+  const store = storeFor(name)
+  return rateLimit({
+    windowMs,
+    limit,
+    ...(store ? { store } : {}),
+    ...(keyGenerator ? { keyGenerator } : {}),
+    // Sign-in limits count only failed attempts, so a person signing in often never locks themselves out.
+    skipSuccessfulRequests: failuresOnly,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    handler: (_request, response) => response.status(429).json({ ok: false, code: 'rate_limited', error: message })
+  })
+}
 
 function fail(response, error, fallback) {
   if (error instanceof HrStoreError) return response.status(STATUS[error.code] ?? 400).json({ ok: false, code: error.code, error: error.message, ...(error.limit !== undefined ? { limit: error.limit } : {}) })
@@ -35,20 +58,42 @@ async function readResume(document) {
   }
 }
 
-export function createHrRouter({ store = hrStore, auth = createHrAuth(), read = readResume, aiLimits = createUserAiLimits({ perMinute: env.limits.userAiPerMinute, perDay: env.limits.userAiPerDay, keyOf: request => request.hrUser.id }), loginLimit = { windowMs: 15 * 60_000, limit: 10 } } = {}) {
+/**
+ * createHrRouter({ store, auth, read, aiLimits, aiBudget, limits, limitStore, demo, now }). Everything is swappable
+ * for tests. limits: { login, loginPerEmail, register, demo } as { windowMs, limit }. limitStore(name) returns the
+ * express-rate-limit store for one limiter (Firestore by default; undefined means in memory).
+ */
+export function createHrRouter({
+  store = hrStore,
+  auth = createHrAuth(),
+  read = readResume,
+  aiLimits = createUserAiLimits({ perMinute: env.limits.userAiPerMinute, perDay: env.limits.userAiPerDay, keyOf: request => request.hrUser.id }),
+  aiBudget = createDailyTokenBudget({ keyOf: request => request.hrUser.id, allowance: request => (request.hrUser.demo ? env.hr.demoDailyTokens : env.hr.dailyTokens) }),
+  limits = {},
+  limitStore = name => createFirestoreRateLimitStore({ prefix: name }),
+  demo = { enabled: env.hr.demoEnabled, fixture: demoFixture, profile: DEMO_PROFILE },
+  now = () => Date.now()
+} = {}) {
   const router = Router()
   const small = express.json({ limit: '100kb' })
   const documentBody = express.json({ limit: '1mb' })
+  const windows = {
+    login: { windowMs: 15 * 60_000, limit: 10 },
+    loginPerEmail: { windowMs: 60 * 60_000, limit: 20 },
+    register: { windowMs: 24 * 60 * 60_000, limit: 5 },
+    demo: { windowMs: 60 * 60_000, limit: 5 },
+    ...limits
+  }
 
-  const loginLimiter = rateLimit({
-    ...loginLimit,
-    standardHeaders: 'draft-8',
-    legacyHeaders: false,
-    handler: (_request, response) => response.status(429).json({ ok: false, error: 'Too many sign-in attempts. Wait a few minutes and try again.' })
-  })
+  // Per network address, and per email address (so rotating addresses can't keep guessing one account's password).
+  const loginLimiter = limiter({ name: 'hr-login', ...windows.login, storeFor: limitStore, failuresOnly: true, message: 'Too many sign-in attempts. Wait a few minutes and try again.' })
+  const loginEmailLimiter = limiter({ name: 'hr-login-email', ...windows.loginPerEmail, storeFor: limitStore, keyGenerator: request => `email:${hashOf(request.body?.email)}`, failuresOnly: true, message: 'Too many sign-in attempts for this account. Wait an hour and try again.' })
+  const registerLimiter = limiter({ name: 'hr-register', ...windows.register, storeFor: limitStore, message: 'Too many new accounts from your network today. Try again tomorrow.' })
+  const demoLimiter = limiter({ name: 'hr-demo', ...windows.demo, storeFor: limitStore, message: 'Too many demo workspaces from your network. Try again in an hour.' })
+  const sessionFor = (account, expiresAt) => auth.issue(account, expiresAt ? { expiresAt } : {})
 
-  // Configured logins (environment or demo) first, then accounts registered through the sign-up form.
-  router.post('/auth/login', loginLimiter, small, async (request, response) => {
+  // Configured logins (environment) first, then accounts registered through the sign-up form.
+  router.post('/auth/login', loginLimiter, small, loginEmailLimiter, async (request, response) => {
     const { email, password } = request.body ?? {}
     if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) return response.status(400).json({ ok: false, error: 'Enter your work email and password.' })
     try {
@@ -60,7 +105,8 @@ export function createHrRouter({ store = hrStore, auth = createHrAuth(), read = 
       }
       if (!account) return response.status(401).json({ ok: false, error: 'That email and password don’t match an HR account.' })
       const view = await store.ensureAccount(account.id, account.email, account.profile)
-      const session = auth.issue(account)
+      const state = await store.getSessionState(account.id)
+      const session = sessionFor({ ...account, sessionVersion: state?.sessionVersion ?? 0 })
       return response.json({ ok: true, token: session.token, expiresAt: session.expiresAt, account: view })
     } catch (error) {
       return fail(response, error, 'Could not open your HR account')
@@ -68,10 +114,10 @@ export function createHrRouter({ store = hrStore, auth = createHrAuth(), read = 
   })
 
   // Sign-up: person, company and password in one request. Field problems come back per field for the form.
-  router.post('/auth/register', loginLimiter, small, async (request, response) => {
+  router.post('/auth/register', registerLimiter, small, async (request, response) => {
     const { value, errors } = checkHrDetails(request.body ?? {}, { withPassword: true })
     if (Object.keys(errors).length) return response.status(400).json({ ok: false, code: 'invalid', error: 'Check the highlighted fields.', fields: errors })
-    if (auth.isConfigured(value.email)) return response.status(409).json({ ok: false, code: 'exists', error: 'This email is already an HR account. Sign in instead.', fields: { email: 'Already registered.' } })
+    if (auth.isConfigured(value.email) || value.email === DEMO_EMAIL) return response.status(409).json({ ok: false, code: 'exists', error: 'This email is already an HR account. Sign in instead.', fields: { email: 'Already registered.' } })
     try {
       const id = hrIdFor(value.email)
       const { email, ...details } = value
@@ -84,7 +130,65 @@ export function createHrRouter({ store = hrStore, auth = createHrAuth(), read = 
     }
   })
 
+  // "Explore the demo": a private workspace for this visitor alone, with made-up data, deleted after a day.
+  // Nobody shares a demo, so nobody can see or change what another visitor uploaded.
+  router.post('/auth/demo', demoLimiter, async (_request, response) => {
+    if (!demo.enabled) return response.status(404).json({ ok: false, code: 'not_found', error: 'The demo is not available.' })
+    try {
+      await store.sweepExpiredDemos().catch(error => console.error('Expired demo workspaces could not be removed:', error?.message))
+      const id = demoIdFor()
+      const expiresAt = now() + HR_DEMO_MS
+      const view = await store.createDemoAccount(id, { email: DEMO_EMAIL, profile: demo.profile, fixture: demo.fixture, expiresAt })
+      const session = sessionFor({ id, email: DEMO_EMAIL, demo: true, sessionVersion: 0 }, Math.min(expiresAt, now() + HR_SESSION_MS))
+      return response.status(201).json({ ok: true, token: session.token, expiresAt: session.expiresAt, account: view })
+    } catch (error) {
+      return fail(response, error, 'Could not open a demo workspace')
+    }
+  })
+
   router.use(auth.requireHr)
+
+  // The token's signature was checked; now check it against the account: it must still exist, the session version
+  // must match (signing out or changing the password raises it), and a demo must not have expired.
+  router.use(async (request, response, next) => {
+    try {
+      const state = await store.getSessionState(request.hrUser.id)
+      const ended = !state || state.sessionVersion !== request.hrUser.ver || (state.demo && !(state.demoExpiresAt > now()))
+      if (ended) return response.status(401).json({ ok: false, code: 'hr_session', error: state?.demo ? 'This demo has ended. Open a new one from the sign-in page.' : 'Your HR session has ended. Sign in again.' })
+      request.hrUser.demo = state.demo
+      return next()
+    } catch (error) {
+      return fail(response, error, 'Could not check your HR session')
+    }
+  })
+
+  // Sign out on every device: older tokens stop working. A demo workspace is deleted outright.
+  router.post('/auth/logout', async (request, response) => {
+    try {
+      if (request.hrUser.demo) await store.deleteAccount(request.hrUser.id)
+      else await store.bumpSessionVersion(request.hrUser.id)
+      return response.json({ ok: true })
+    } catch (error) {
+      return fail(response, error, 'Could not sign you out')
+    }
+  })
+
+  // { currentPassword, newPassword, confirmPassword } → a new session; every other session ends.
+  router.put('/account/password', small, async (request, response) => {
+    const { currentPassword, newPassword, confirmPassword } = request.body ?? {}
+    const errors = checkNewPassword(newPassword, confirmPassword)
+    if (typeof currentPassword !== 'string' || !currentPassword) errors.currentPassword = 'Enter your current password.'
+    else if (typeof newPassword === 'string' && newPassword === currentPassword) errors.newPassword = 'Choose a password you haven’t used here.'
+    if (Object.keys(errors).length) return response.status(400).json({ ok: false, code: 'invalid', error: 'Check the highlighted fields.', fields: errors })
+    try {
+      const version = await store.changePassword(request.hrUser.id, credentials => verifyPassword(currentPassword, credentials), hashPassword(newPassword))
+      const session = sessionFor({ id: request.hrUser.id, email: request.hrUser.email, sessionVersion: version })
+      return response.json({ ok: true, token: session.token, expiresAt: session.expiresAt })
+    } catch (error) {
+      if (error instanceof HrStoreError && error.code === 'wrong_password') return response.status(400).json({ ok: false, code: 'invalid', error: error.message, fields: { currentPassword: error.message } })
+      return fail(response, error, 'Could not change your password')
+    }
+  })
 
   // Edit the person and company details. The email is the sign-in and stays as it is.
   router.put('/account/details', small, async (request, response) => {
@@ -196,7 +300,9 @@ export function createHrRouter({ store = hrStore, auth = createHrAuth(), read = 
   })
 
   // One resume per request, so the browser can show each file's progress and retry only what failed.
-  router.post('/openings/:openingId/candidates', aiLimits, documentBody, async (request, response) => {
+  // Reading a resume calls the AI model: per-account limits and the daily allowance first, then the body, then
+  // usage tracking last (body parsing can lose the async context the tracker relies on).
+  router.post('/openings/:openingId/candidates', aiLimits, aiBudget, documentBody, trackAiUsageFor(request => request.hrUser.id), async (request, response) => {
     const { fileName, document } = request.body ?? {}
     const source = normalizeResumeDocument(document ?? {})
     if (!source.rawText) return response.status(400).json({ ok: false, code: 'invalid', error: 'No readable text was found in this file.' })

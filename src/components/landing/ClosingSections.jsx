@@ -18,7 +18,7 @@ export function BigCta() {
 }
 
 // Social accounts are coming; the links stay inert until their addresses are added here.
-const socials = [['instagram', 'Instagram'], ['x', 'X'], ['facebook', 'Facebook']]
+const socials = []   // e.g. ['instagram', 'Instagram', 'https://www.instagram.com/…']
 
 export function LandingFooter() {
   const navigate = useNavigate()
@@ -28,14 +28,16 @@ export function LandingFooter() {
       <div className="lp-footer-brand">
         <BrandLogo />
         <p>Resumes built from your real work, tuned to every job.</p>
-        <ul className="lp-socials" aria-label="Resumetrics on social media">
-          {socials.map(([icon, name]) => <li key={icon}><a href="#" aria-label={`${name} (coming soon)`} title={`${name} (coming soon)`} onClick={event => event.preventDefault()}><LandingIcon name={icon} size={18} /></a></li>)}
-        </ul>
+        {/* Social accounts are listed only once they exist: add [icon, name, url] rows to `socials`. */}
+        {socials.length > 0 && <ul className="lp-socials" aria-label="Resumetrics on social media">
+          {socials.map(([icon, name, url]) => <li key={icon}><a href={url} target="_blank" rel="noopener noreferrer" aria-label={name} title={name}><LandingIcon name={icon} size={18} /></a></li>)}
+        </ul>}
       </div>
       <nav className="lp-footer-links" aria-label="Footer">
         <div><b>Product</b><a href="#nimbus">NIMBUS</a><a href="#inside">Inside the app</a></div>
         <div><b>Tools</b><a href="#tailor">Job tailoring</a><a href="#letter">Cover letters</a><a href="#evidence">Evidence check</a><a href="#jobs">Job tracker</a></div>
-        <div><b>Account</b><button type="button" onClick={() => navigate('/login')}>Start free</button></div>
+        <div><b>Account</b><button type="button" onClick={() => navigate('/login')}>Start free</button><a href="/hr/login">For hiring teams</a></div>
+        <div><b>Legal</b><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a></div>
       </nav>
     </div>
     <div className="lp-footer-bottom">

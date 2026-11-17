@@ -180,7 +180,7 @@
 .lp-socials a { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 50%; color: var(--lp-ink); background: var(--lp-card); box-shadow: inset 0 0 0 1px var(--lp-line); transition: color .25s ease, background-color .25s ease; }
 .lp-socials a:hover { color: #fff; background: var(--lp-v700); }
 .lp-socials a:focus-visible { outline: 3px solid rgba(var(--lp-violet-rgb), .4); outline-offset: 2px; }
-.lp-footer-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.lp-footer-links { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
 .lp-footer-links div { display: grid; align-content: start; gap: 10px; }
 .lp-footer-links b { margin-bottom: 4px; font-size: 14px; }
 .lp-footer-links a, .lp-footer-links button { padding: 0; border: 0; color: var(--lp-muted); background: none; font: inherit; font-size: 14.5px; text-align: left; text-decoration: none; cursor: pointer; }

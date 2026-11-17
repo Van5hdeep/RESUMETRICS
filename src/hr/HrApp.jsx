@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
-import { clearSession, getSession, hrApi, SESSION_ENDED } from './hrApi.js'
+import { getSession, hrApi, SESSION_ENDED, signOutEverywhere } from './hrApi.js'
 import { resetLogoIntro } from '../components/BrandLogo.jsx'
 import HrLogin from './HrLogin.jsx'
 import HrLayout from './HrLayout.jsx'
@@ -32,8 +32,8 @@ function RequireHr() {
     }
   }, [])
 
-  const signOut = useCallback(() => {
-    clearSession()
+  const signOut = useCallback(async () => {
+    await signOutEverywhere()
     resetLogoIntro()
     navigate('/hr/login', { replace: true })
   }, [navigate])

@@ -1,0 +1,278 @@
+{
+  "note": "Fictional people for the HR portal demo: every email uses example.com and no link points at a real profile. Each demo visitor gets a private copy (server/hr/demoSandbox.js).",
+  "opening": {
+    "title": "Frontend Developer (React)",
+    "employmentType": "Full-time",
+    "location": "Pune-hybrid",
+    "minYears": 2,
+    "education": "Bachelor's in Computer Science",
+    "mustHave": [
+      "React",
+      "JavaScript",
+      "TypeScript",
+      "CSS",
+      "Git"
+    ],
+    "niceToHave": [
+      "Next.js",
+      "Jest",
+      "Tailwind CSS",
+      "Figma"
+    ],
+    "description": "We're hiring a Frontend Developer to build the hiring dashboard our recruiters use every day.\n\nWhat you will do:\n- Build reusable React components and pages in TypeScript.\n- Turn Figma designs into accessible, responsive interfaces.\n- Write unit tests with Jest and keep the component library documented.\n- Review pull requests and improve page performance.\n\nRequirements:\n- 2+ years building web apps with React and JavaScript.\n- Strong TypeScript and CSS.\n- Day-to-day use of Git and code review.\n\nNice to have:\n- Next.js, Tailwind CSS and Jest.\n- Experience working from Figma designs."
+  },
+  "candidates": [
+    {
+      "fileName": "ananya-kulkarni-resume.pdf",
+      "resumeData": {
+        "fullName": "Ananya Kulkarni",
+        "headline": "Frontend Engineer",
+        "email": "ananya.kulkarni@example.com",
+        "phone": "+91 90000 11101",
+        "location": "Pune, India",
+        "links": [],
+        "summary": "Frontend engineer with 4+ years building React and TypeScript web apps. Ships accessible component libraries from Figma designs, tests them with Jest, and cares about page speed.",
+        "skills": {
+          "languages": [
+            "JavaScript",
+            "TypeScript",
+            "HTML",
+            "CSS"
+          ],
+          "frameworks": [
+            "React",
+            "Next.js",
+            "Redux Toolkit",
+            "Tailwind CSS"
+          ],
+          "tools": [
+            "Jest",
+            "React Testing Library",
+            "Git",
+            "GitHub Actions",
+            "Figma",
+            "Storybook"
+          ],
+          "databases": [],
+          "softSkills": [],
+          "other": []
+        },
+        "experience": [
+          {
+            "role": "Frontend Engineer",
+            "company": "Brightlane Analytics",
+            "location": "",
+            "startDate": "Jan 2022",
+            "endDate": "Present",
+            "bullets": [
+              "Built a reusable React and TypeScript component library used by 6 product teams",
+              "Rebuilt the reporting dashboard in Next.js, cutting load time by 38%",
+              "Raised Jest test coverage from 45% to 88% across the design system",
+              "Turned Figma designs into responsive, WCAG AA compliant pages"
+            ]
+          },
+          {
+            "role": "Junior Web Developer",
+            "company": "Pixelcraft Studio",
+            "location": "",
+            "startDate": "Jul 2020",
+            "endDate": "Dec 2021",
+            "bullets": [
+              "Built marketing sites with React, JavaScript and Tailwind CSS",
+              "Reviewed pull requests and kept the Git workflow tidy for a team of 5"
+            ]
+          }
+        ],
+        "projects": [],
+        "education": [
+          {
+            "degree": "B.Tech, Computer Science",
+            "institution": "Savitribai Phule Pune University",
+            "location": "Pune, India",
+            "startDate": "",
+            "endDate": "",
+            "details": []
+          }
+        ],
+        "certifications": [
+          "Meta Front-End Developer Certificate (2021)"
+        ],
+        "achievements": [],
+        "languages": [],
+        "customSections": [],
+        "missingFields": [
+          "projects",
+          "achievements"
+        ],
+        "confidenceNotes": []
+      }
+    },
+    {
+      "fileName": "rohan-deshpande-resume.docx",
+      "resumeData": {
+        "fullName": "Rohan Deshpande",
+        "headline": "Full Stack Developer",
+        "email": "rohan.deshpande@example.com",
+        "phone": "+91 90000 11102",
+        "location": "Nagpur, India",
+        "links": [],
+        "summary": "Full stack developer with 2.5 years of experience building web apps with JavaScript, React and Node.js. Comfortable across the stack, from REST APIs to UI.",
+        "skills": {
+          "languages": [
+            "JavaScript",
+            "HTML",
+            "CSS",
+            "SQL"
+          ],
+          "frameworks": [
+            "React",
+            "Node.js",
+            "Express",
+            "Bootstrap"
+          ],
+          "tools": [
+            "Git",
+            "MongoDB",
+            "Postman",
+            "Docker"
+          ],
+          "databases": [],
+          "softSkills": [],
+          "other": []
+        },
+        "experience": [
+          {
+            "role": "Full Stack Developer",
+            "company": "CartNest Commerce",
+            "location": "",
+            "startDate": "Jun 2023",
+            "endDate": "Present",
+            "bullets": [
+              "Built admin panels in React and REST APIs in Node.js and Express",
+              "Added order tracking that reduced support tickets by 20%",
+              "Wrote SQL reports for the finance team"
+            ]
+          },
+          {
+            "role": "Software Developer Intern",
+            "company": "CodeHarbor Labs",
+            "location": "",
+            "startDate": "Jan 2023",
+            "endDate": "May 2023",
+            "bullets": [
+              "Fixed UI bugs in a React and Bootstrap app",
+              "Used Git and GitHub for daily code reviews"
+            ]
+          }
+        ],
+        "projects": [],
+        "education": [
+          {
+            "degree": "BCA (Bachelor of Computer Applications)",
+            "institution": "RTM Nagpur University",
+            "location": "",
+            "startDate": "2022",
+            "endDate": "",
+            "details": []
+          }
+        ],
+        "certifications": [],
+        "achievements": [],
+        "languages": [],
+        "customSections": [],
+        "missingFields": [
+          "projects",
+          "certifications",
+          "achievements"
+        ],
+        "confidenceNotes": []
+      }
+    },
+    {
+      "fileName": "kavya-menon-resume.txt",
+      "resumeData": {
+        "fullName": "Kavya Menon",
+        "headline": "Data Analyst",
+        "email": "kavya.menon@example.com",
+        "phone": "+91 90000 11103",
+        "location": "Kochi, India",
+        "links": [],
+        "summary": "Data analyst with 3 years turning sales and operations data into dashboards and reports. Learning web development in my spare time.",
+        "skills": {
+          "languages": [
+            "Python",
+            "SQL"
+          ],
+          "frameworks": [],
+          "tools": [
+            "Excel",
+            "Power BI",
+            "Tableau",
+            "Jupyter"
+          ],
+          "databases": [],
+          "softSkills": [],
+          "other": [
+            "Basic HTML and CSS",
+            "Statistics"
+          ]
+        },
+        "experience": [
+          {
+            "role": "Data Analyst",
+            "company": "Coastline Retail",
+            "location": "",
+            "startDate": "Aug 2022",
+            "endDate": "Present",
+            "bullets": [
+              "Built weekly sales dashboards in Power BI for 40 stores",
+              "Automated Excel reports with Python, saving 6 hours a week",
+              "Wrote SQL queries to track stock levels"
+            ]
+          },
+          {
+            "role": "Operations Executive",
+            "company": "Bluewave Logistics",
+            "location": "",
+            "startDate": "Jun 2021",
+            "endDate": "Jul 2022",
+            "bullets": [
+              "Tracked delivery metrics and prepared monthly reports"
+            ]
+          }
+        ],
+        "projects": [
+          {
+            "name": "Personal portfolio page built with HTML and CSS",
+            "techStack": [
+              "HTML",
+              "CSS"
+            ],
+            "description": "",
+            "bullets": [],
+            "links": []
+          }
+        ],
+        "education": [
+          {
+            "degree": "B.Sc, Statistics",
+            "institution": "Mahatma Gandhi University",
+            "location": "India",
+            "startDate": "2021",
+            "endDate": "2021",
+            "details": []
+          }
+        ],
+        "certifications": [],
+        "achievements": [],
+        "languages": [],
+        "customSections": [],
+        "missingFields": [
+          "certifications",
+          "achievements"
+        ],
+        "confidenceNotes": []
+      }
+    }
+  ]
+}

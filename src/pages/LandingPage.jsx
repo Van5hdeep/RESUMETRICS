@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import LandingNav from '../components/landing/LandingNav.jsx'
 import GoldHero from '../components/landing/GoldHero.jsx'
 import ResumeWriter from '../components/landing/ResumeWriter.jsx'
@@ -17,11 +17,7 @@ export default function LandingPage() {
   useRevealOnScroll(rootRef)
   useCinematicScroll(rootRef)
 
-  useEffect(() => {
-    const previousTitle = document.title
-    document.title = 'Resumetrics — The resume your work deserves'
-    return () => { document.title = previousTitle }
-  }, [])
+  // The tab title comes from usePageTitle (src/hooks/usePageTitle.js).
 
   return <div className="lp" ref={rootRef}>
     <LandingNav />

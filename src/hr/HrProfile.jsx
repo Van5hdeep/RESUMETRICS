@@ -54,7 +54,7 @@ export default function HrProfile() {
     </PageHeader>
 
     {saved && <p className="hr-alert hr-alert--info" role="status">Details saved.</p>}
-    {details?.demo && <p className="hr-alert hr-alert--info">This is the demo account. The company, website and registration number are made up for demonstrations.</p>}
+    {account.demo && <p className="hr-alert hr-alert--info">This is your private demo workspace. The company, website and registration number are made up, and everything here is deleted {account.demoExpiresAt ? `on ${new Date(account.demoExpiresAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}` : 'after 24 hours'} or when you sign out.</p>}
 
     {verification && <section className={`hr-panel hr-verify hr-verify--${verification.status}`}>
       <span className="hr-verify-icon" aria-hidden="true"><Icon name={verification.status === 'verified' ? 'check' : 'plan'} /></span>
@@ -91,5 +91,54 @@ export default function HrProfile() {
         </dl>
       </section>
     </div>}
+
+    {account.canChangePassword && <PasswordPanel />}
   </div>
+}
+
+const NO_PASSWORDS = { currentPassword: '', newPassword: '', confirmPassword: '' }
+
+/** Change the sign-in password. Every other device is signed out; this one stays signed in. */
+function PasswordPanel() {
+  const [values, setValues] = useState(NO_PASSWORDS)
+  const [errors, setErrors] = useState({})
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState({ type: '', text: '' })
+  const set = (key, value) => setValues(current => ({ ...current, [key]: value }))
+
+  const submit = async event => {
+    event.preventDefault()
+    setMessage({ type: '', text: '' })
+    setErrors({})
+    setBusy(true)
+    try {
+      await hrApi.changePassword(values.currentPassword, values.newPassword, values.confirmPassword)
+      setValues(NO_PASSWORDS)
+      setMessage({ type: 'info', text: 'Password changed. Other devices have been signed out.' })
+    } catch (problem) {
+      if (problem.fields) setErrors(problem.fields)
+      else setMessage({ type: 'error', text: problem.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const field = (key, label, autoComplete, hint) => <label className={`hr-field${errors[key] ? ' has-error' : ''}`}>
+    <span>{label}</span>
+    <input type="password" autoComplete={autoComplete} value={values[key]} onChange={event => set(key, event.target.value)} aria-invalid={Boolean(errors[key])} required />
+    {errors[key] ? <small className="hr-field-error" role="alert">{errors[key]}</small> : hint && <small>{hint}</small>}
+  </label>
+
+  return <form className="hr-panel hr-form hr-profile-form" onSubmit={submit} noValidate aria-labelledby="hr-password-title">
+    <h2 id="hr-password-title">Password</h2>
+    {message.text && <p className={`hr-alert hr-alert--${message.type}`} role={message.type === 'error' ? 'alert' : 'status'}>{message.text}</p>}
+    {field('currentPassword', 'Current password', 'current-password')}
+    <div className="hr-field-row">
+      {field('newPassword', 'New password', 'new-password', 'At least 8 characters, with a letter and a number.')}
+      {field('confirmPassword', 'Confirm new password', 'new-password')}
+    </div>
+    <div className="hr-form-actions">
+      <button className="hr-btn hr-btn--primary" type="submit" disabled={busy || !values.currentPassword || !values.newPassword}>{busy ? 'Changing…' : 'Change password'}</button>
+    </div>
+  </form>
 }

@@ -98,7 +98,9 @@ export default function ResumeWriter() {
           <p className="lp-progress-label" aria-live="polite">{done ? 'Resume complete' : stage}</p>
         </div>
       </div>
-      <div className="lp-writer-paper" ref={frameRef} style={{ '--scale': scale, '--page-h': pageHeight }}>
+      {/* A picture of a sample resume: hidden from screen readers and keyboard focus (its heading and links are not
+          part of this page), and described by the section's label instead. */}
+      <div className="lp-writer-paper" ref={frameRef} style={{ '--scale': scale, '--page-h': pageHeight }} aria-hidden="true" inert>
         <div className="lp-writer-sheet" ref={pageRef}>
           <Template resumeData={landingResumeData} presentation={presentation} preview />
         </div>

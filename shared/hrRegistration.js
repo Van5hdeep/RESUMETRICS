@@ -65,13 +65,22 @@ export function checkHrDetails(input = {}, { withPassword = false } = {}) {
   if (value.registrationType === 'other' && value.registrationNumber && value.registrationNumber.length < 4) errors.registrationNumber = 'Enter the registration number, or leave it empty.'
 
   if (withPassword) {
-    const password = String(input.password ?? '')
-    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) errors.password = 'Use at least 8 characters with a letter and a number.'
-    else if (password.length > 128) errors.password = 'Use at most 128 characters.'
-    if (password !== String(input.confirmPassword ?? '')) errors.confirmPassword = 'The passwords don’t match.'
-    if (input.agree !== true) errors.agree = 'Confirm that you hire for this company.'
+    const passwordErrors = checkNewPassword(input.password, input.confirmPassword)
+    if (passwordErrors.newPassword) errors.password = passwordErrors.newPassword
+    if (passwordErrors.confirmPassword) errors.confirmPassword = passwordErrors.confirmPassword
+    if (input.agree !== true) errors.agree = 'Confirm that you hire for this company and accept the Terms and Privacy Policy.'
   }
   return { value, errors }
+}
+
+/** The password rule, for sign-up and for changing a password. → { newPassword?, confirmPassword? } messages. */
+export function checkNewPassword(password, confirmPassword) {
+  const errors = {}
+  const value = typeof password === 'string' ? password : ''
+  if (value.length < 8 || !/[A-Za-z]/.test(value) || !/[0-9]/.test(value)) errors.newPassword = 'Use at least 8 characters with a letter and a number.'
+  else if (value.length > 128) errors.newPassword = 'Use at most 128 characters.'
+  if (value !== (typeof confirmPassword === 'string' ? confirmPassword : '')) errors.confirmPassword = 'The passwords don’t match.'
+  return errors
 }
 
 /**

@@ -193,7 +193,11 @@ export function candidateSummary(candidate, opening, options) {
 export function candidatesCsv(rows, weights) {
   const keys = Object.keys(weights)
   const quote = value => {
-    const text = String(value ?? '')
+    // A phone number like "+91 90000 12345" would start a formula, and the usual guard (a leading apostrophe) shows
+    // up as text in Excel. Phone-shaped values become "(+91) 90000 12345" instead: same number, nothing to evaluate.
+    const raw = String(value ?? '')
+    const phone = /^\+(\d{1,4})[\s-]*([\d\s()-]+)$/.exec(raw)
+    const text = phone ? `(+${phone[1]}) ${phone[2].trim()}` : raw
     // A leading = + - @ would run as a formula when the file is opened in a spreadsheet.
     const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text
     return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe

@@ -57,6 +57,16 @@ export function getGitHubInstallationUrl(state) {
   return url.toString()
 }
 
+/** GitHub's user sign-in page for the App. It returns a one-time code, which proves which installations the user can reach. */
+export function getGitHubUserAuthorizationUrl(state) {
+  validateGitHubConfiguration()
+  const url = new URL('https://github.com/login/oauth/authorize')
+  url.searchParams.set('client_id', env.github.clientId)
+  url.searchParams.set('redirect_uri', env.github.callbackUrl)
+  url.searchParams.set('state', state)
+  return url.toString()
+}
+
 export async function getInstallationProfile(installationId) {
   const { data } = await getGitHubApp().octokit.request('GET /app/installations/{installation_id}', {
     installation_id: installationIdOrThrow(installationId)

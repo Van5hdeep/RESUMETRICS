@@ -31,7 +31,7 @@ const read = async source => {
 
 const app = express()
 app.set('env', 'test')
-app.use('/api/hr', createHrRouter({ store, auth, read, aiLimits: (_request, _response, next) => next(), loginLimit: { windowMs: 60_000, limit: 100 } }))
+app.use('/api/hr', createHrRouter({ store, auth, read, aiLimits: (_request, _response, next) => next(), aiBudget: (_request, _response, next) => next(), limitStore: () => undefined, limits: { login: { windowMs: 60_000, limit: 100 }, loginPerEmail: { windowMs: 60_000, limit: 100 }, register: { windowMs: 60_000, limit: 100 } }, demo: { enabled: false }, now: () => clock }))
 const server = await new Promise(resolve => { const listening = app.listen(0, '127.0.0.1', () => resolve(listening)) })
 const call = async (method, path, { token, body } = {}) => {
   const response = await fetch(`http://127.0.0.1:${server.address().port}/api/hr${path}`, {
@@ -263,10 +263,10 @@ try {
   assert.equal(auth.checkCredentials('abc@gmail.com', '12345 '), null)
   assert.equal(auth.checkCredentials('abc@gmail.com', 'x'.repeat(10_000)), null)
 
-  // Without environment settings the demo account is used.
-  assert.deepEqual(configuredHrAccounts({}).map(account => account.email), ['abc@gmail.com'])
-  assert.equal(configuredHrAccounts({})[0].profile.fullName, 'Vanshdeep Mishra')
-  assert.equal(configuredHrAccounts({})[0].profile.verification, 'verified')
+  // There is no built-in password: without environment settings nobody signs in with a configured login.
+  assert.deepEqual(configuredHrAccounts({}), [])
+  // The demo is switched off for this router.
+  assert.equal((await call('POST', '/auth/demo')).status, 404)
   assert.deepEqual(configuredHrAccounts({ RESUMETRICS_HR_EMAIL: 'HR@Corp.com', RESUMETRICS_HR_PASSWORD: 'longer-pass' }), [{ email: 'hr@corp.com', password: 'longer-pass' }])
 } finally {
   server.close()

@@ -13,6 +13,9 @@ export function trackAiUsage(request, _response, next) {
   scope.run({ uid: request.firebaseUser.uid }, next)
 }
 
+/** trackAiUsage for AI spend that belongs to another kind of account (an HR account id). Same mounting rule. */
+export const trackAiUsageFor = keyOf => (request, _response, next) => scope.run({ uid: keyOf(request) }, next)
+
 const currentUid = () => scope.getStore()?.uid ?? null
 
 /** The day a usage row belongs to, "YYYY-MM-DD" in the usage time zone (default Asia/Kolkata). */
@@ -73,13 +76,21 @@ export async function recordLimited(uid = currentUid()) {
   if (uid) await usageStore.add(uid, usageDay(), { limitedCalls: 1 })
 }
 
-/** Express middleware (after requireUser): refuses AI requests once the user has used today's token allowance. */
-export async function enforceDailyTokenBudget(request, response, next) {
-  const uid = request.firebaseUser.uid
-  const today = await getUsage(uid)
-  if (today.tokensIn + today.tokensOut < env.usage.userDailyTokens) return next()
-  await recordLimited(uid)
-  const seconds = secondsUntilNextDay()
-  response.set('Retry-After', String(seconds))
-  return response.status(429).json({ ok: false, error: `You’ve used today’s AI allowance. It resets in ${formatWait(seconds)}.`, retryAfterSeconds: seconds })
+/**
+ * Express middleware factory: refuses AI requests once the account has used today's token allowance.
+ * keyOf(request) names whose usage row counts (the Firebase uid by default, an HR account id for the HR portal).
+ */
+export function createDailyTokenBudget({ keyOf = request => request.firebaseUser.uid, allowance = () => env.usage.userDailyTokens } = {}) {
+  return async function dailyTokenBudget(request, response, next) {
+    const uid = keyOf(request)
+    const today = await getUsage(uid)
+    if (today.tokensIn + today.tokensOut < allowance(request)) return next()
+    await recordLimited(uid)
+    const seconds = secondsUntilNextDay()
+    response.set('Retry-After', String(seconds))
+    return response.status(429).json({ ok: false, code: 'ai_allowance', error: `You’ve used today’s AI allowance. It resets in ${formatWait(seconds)}.`, retryAfterSeconds: seconds })
+  }
 }
+
+/** The candidate app's check (after requireUser). */
+export const enforceDailyTokenBudget = createDailyTokenBudget()
