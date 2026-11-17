@@ -63,14 +63,14 @@ and get them scored and ranked against the job.
 The HR portal (`/hr`) is a separate sign-in for recruiters, kept apart from candidate accounts.
 
 1. **Post a job opening** with must-have and nice-to-have skills, years of experience and education.
-2. **Drop in resumes** (PDF, DOCX or TXT, up to 50 per opening). Duplicates are skipped.
+2. **Drop in resumes** (PDF, DOCX or TXT; up to 5 per opening on the free plan, 50 on Hiring Pro). Duplicates are skipped.
 3. **See them ranked.** Each resume gets a score out of 100 from skills, experience, education and keywords, with
    weights you can change. A chart compares candidates on any two of those scores.
 4. **Decide.** Shortlist or reject in a click (alone or in bulk), turn on blind screening to hide names, and export
    the shortlist as CSV.
 
-Anyone can try it with **Explore the demo** on the HR sign-in page. It opens a private workspace with made-up
-candidates, which is deleted after 24 hours.
+Anyone can try it with **Explore the demo** on the HR sign-in page. It opens a private workspace on Hiring Pro
+with made-up candidates, which is deleted after 24 hours.
 
 <p align="center"><img src="public/landing/shots/hr-compare.webp" alt="The HR portal comparing candidates on a chart above the ranked list" width="900"></p>
 
@@ -101,8 +101,8 @@ Prices are in rupees and include GST. They live in `shared/plans.js` and `shared
 | --- | --- | --- |
 | Free | ₹0 | 2 resumes, NIMBUS, templates, cover letters, evidence check, export |
 | Pro | ₹299/month, ₹2,399/year or ₹4,999 lifetime | Unlimited resumes, job tailoring and the job tracker |
-| Hiring (free) | ₹0 | 2 job openings, 50 resumes each |
-| Hiring Pro | ₹999/month or ₹9,599/year | Unlimited job openings |
+| Hiring (free) | ₹0 | 2 job openings in total (deleting one doesn't give it back), 5 resumes each |
+| Hiring Pro | ₹999/month or ₹9,599/year | Unlimited job openings, 50 resumes each |
 
 Online payments are not connected yet. Pro can be granted by hand with `scripts/grant-pro.mjs` and
 `scripts/grant-hr-pro.mjs`.
@@ -284,7 +284,7 @@ Every `tests/*.test.js` file runs in its own Node process; the run stops at the 
 | Area | Files | What they prove |
 | --- | --- | --- |
 | Security and access | `aiRouteGuards`, `githubRoutes`, `hrSessions`, `hrRoutes`, `requireUser`, `userRoutes`, `limits`, `firestoreRules`, `safeUrl` | Every route that can reach the AI model sits behind sign-in, per-user limits, the daily allowance and usage tracking (found from the import graph, so a new AI route can't be missed); a GitHub installation is linked only when the signed-in GitHub user can reach it; forged, tampered, expired and signed-out HR tokens are refused; demo workspaces are private and expire; password changes end old sessions; sign-in limits hold across instances; browsers can't touch Firestore directly; only safe URLs reach `href` and `<img src>`. |
-| Data and plans | `resumeStore`, `resumeQuota`, `resumeVersions`, `resumeFields`, `saveQueue`, `workspacePersistence`, `evidenceStore`, `usageStore`, `aiUsage`, `jobs` | Saves with conflict detection, free-plan limits, version history, offline save queue, usage counters and the job tracker. |
+| Data and plans | `hrPlanLimits`, `resumeStore`, `resumeQuota`, `resumeVersions`, `resumeFields`, `saveQueue`, `workspacePersistence`, `evidenceStore`, `usageStore`, `aiUsage`, `jobs` | HR plan limits (Free: 2 openings in total even after deleting, 5 resumes each; Pro and demos: unlimited openings, 50 resumes each, refused before any AI is spent), saves with conflict detection, free-plan limits, version history, offline save queue, usage counters and the job tracker. |
 | AI behaviour (mocked) | `mockProvider`, `providerBudget`, `nimbusPlan`, `applyNimbusOperations`, `factGuard`, `letterPlan`, `letterModel`, `letterLint` | NIMBUS edit plans are valid and applied correctly, invented facts are caught, the provider budget queues instead of failing, cover letters stay within their rules. |
 | Scoring and parsing | `hrScoring`, `jdScoring`, `jdKeywords`, `jdExtract`, `skillGroups`, `githubEvidence`, `githubScan`, `fixPreview` | Resume ranking, CSV export (no spreadsheet formulas), job-post keyword matching and GitHub evidence maths. |
 | Editor | `inlineMarks`, `sectionProgress`, `sectionSettings`, `railSizing`, `signature` | Rich-text marks, form progress, section settings, layout sizing and signature clean-up. |

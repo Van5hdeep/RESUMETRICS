@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { formatRupees } from '../../shared/plans.js'
-import { HR_FREE_OPENING_LIMIT, HR_PRICES, HR_RESUMES_PER_OPENING, HR_YEARLY_SAVING_PERCENT } from '../../shared/hrPlans.js'
+import { HR_FREE_OPENING_LIMIT, HR_FREE_RESUMES_PER_OPENING, HR_PRICES, HR_PRO_RESUMES_PER_OPENING, HR_YEARLY_SAVING_PERCENT } from '../../shared/hrPlans.js'
 import { useHrSession } from './HrApp.jsx'
 import { Icon, PageHeader } from './hrUi.jsx'
 
@@ -9,10 +9,10 @@ const TERMS = ['monthly', 'yearly']
 const MONTHLY_FOR_A_YEAR = HR_PRICES.monthly * 12
 const YEARLY_SAVING = MONTHLY_FOR_A_YEAR - HR_PRICES.yearly
 
-// Only the number of openings differs between the plans; everything else is in both. The table says so plainly.
+// Only the number of openings and the resumes each can hold differ between the plans; every screening feature is in both.
 const COMPARISON = [
   { label: 'Job openings', free: `${HR_FREE_OPENING_LIMIT} in total`, pro: 'Unlimited', differs: true },
-  { label: 'Resumes per opening', free: `Up to ${HR_RESUMES_PER_OPENING}`, pro: `Up to ${HR_RESUMES_PER_OPENING}` },
+  { label: 'Resumes per opening', free: `Up to ${HR_FREE_RESUMES_PER_OPENING}`, pro: `Up to ${HR_PRO_RESUMES_PER_OPENING}`, differs: true },
   { label: 'Scoring, ranking and “why this score”', free: true, pro: true },
   { label: 'Compare chart and side-by-side compare', free: true, pro: true },
   { label: 'Shortlist, reject and bulk actions', free: true, pro: true },
@@ -105,7 +105,7 @@ export default function HrPlan() {
         <p className="hr-price"><b>₹0</b><span>forever</span></p>
         <ul>
           <li><Icon name="check" />{HR_FREE_OPENING_LIMIT} job openings</li>
-          <li><Icon name="check" />Up to {HR_RESUMES_PER_OPENING} resumes per opening</li>
+          <li><Icon name="check" />Up to {HR_FREE_RESUMES_PER_OPENING} resumes per opening</li>
           <li><Icon name="check" />Every screening feature</li>
         </ul>
         {!pro && <p className="hr-current">Current plan</p>}
@@ -119,7 +119,7 @@ export default function HrPlan() {
         <SlidingPrice term={term} />
         <ul>
           <li><Icon name="check" />Unlimited job openings</li>
-          <li><Icon name="check" />Up to {HR_RESUMES_PER_OPENING} resumes per opening</li>
+          <li><Icon name="check" />Up to {HR_PRO_RESUMES_PER_OPENING} resumes per opening</li>
           <li><Icon name="check" />Every screening feature</li>
         </ul>
         {pro ? <p className="hr-current">Current plan</p>
@@ -129,7 +129,7 @@ export default function HrPlan() {
     </div>
 
     <section className="hr-panel hr-compare-plans" aria-labelledby="hr-plans-diff">
-      <div className="hr-panel-head"><h2 id="hr-plans-diff">What’s different</h2><span className="hr-muted">Both plans have every screening feature. Only the number of openings and the price change.</span></div>
+      <div className="hr-panel-head"><h2 id="hr-plans-diff">What’s different</h2><span className="hr-muted">Both plans have every screening feature. Only the number of openings, the resumes each opening holds and the price change.</span></div>
       <div className="hr-visuals">
         <OpeningsVisual />
         <CostVisual />

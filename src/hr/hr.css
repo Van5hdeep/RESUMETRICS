@@ -665,3 +665,4 @@
   .hr-table--ranked .hr-row-link:hover, .hr-table--ranked .hr-row-link.is-picked { background: var(--accent-softer, #f7f5ff); }
   .hr-table--ranked .hr-row-link.is-selected { background: var(--accent-softer, #f7f5ff); box-shadow: inset 3px 0 0 var(--hr-accent); }
 }
+.hr-confirm-note { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--hr-muted); }

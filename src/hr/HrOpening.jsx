@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { HR_CATEGORY_LABELS, STATUS_LABELS } from '../../shared/hrScoring.js'
-import { HR_RESUMES_PER_OPENING } from '../../shared/hrPlans.js'
 import { extractResumeDocument } from '../utils/extractResumeDocument.js'
 import { hrApi } from './hrApi.js'
+import { useHrSession } from './HrApp.jsx'
 import CandidatePanel from './CandidatePanel.jsx'
 import CandidateScatter from './CandidateScatter.jsx'
 import CompareDialog from './CompareDialog.jsx'
@@ -55,11 +55,11 @@ function useUploadQueue(openingId, onScored, blindRef) {
     running.current = false
   }, [openingId, onScored, blindRef])
 
-  const add = (files, room) => {
+  const add = (files, room, limit) => {
     const accepted = files.slice(0, Math.max(0, room))
     const refused = files.slice(accepted.length)
     const fresh = accepted.map(file => ({ key: `${file.name}-${file.size}-${Math.random().toString(36).slice(2)}`, file, name: file.name, status: 'queued', message: '' }))
-    const full = refused.map(file => ({ key: `${file.name}-full-${Math.random().toString(36).slice(2)}`, name: file.name, status: 'failed', message: `This opening is full (${HR_RESUMES_PER_OPENING} resumes).` }))
+    const full = refused.map(file => ({ key: `${file.name}-full-${Math.random().toString(36).slice(2)}`, name: file.name, status: 'failed', message: `This opening is full (${limit} resumes on your plan).` }))
     setItems(current => [...current, ...fresh.map(({ file: _file, ...item }) => item), ...full])
     queue.current.push(...fresh.map(({ key, file }) => ({ key, file })))
     run()
@@ -91,6 +91,8 @@ function applyFilters(rows, filters, blind) {
 export default function HrOpening() {
   const { openingId } = useParams()
   const navigate = useNavigate()
+  const { account } = useHrSession()
+  const freePlan = account.openingLimit !== null
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -134,8 +136,9 @@ export default function HrOpening() {
 
   const { weights } = data
   const pending = queue.items.filter(item => !FINISHED.includes(item.status)).length
-  const room = HR_RESUMES_PER_OPENING - opening.candidateCount - pending
-  const pick = files => { if (files?.length) queue.add([...files], room) }
+  const resumeLimit = account.resumeLimit ?? 5
+  const room = resumeLimit - opening.candidateCount - pending
+  const pick = files => { if (files?.length) queue.add([...files], room, resumeLimit) }
   const filtered = JSON.stringify(filters) !== JSON.stringify(NO_FILTERS)
   const setFilter = (key, value) => setFilters(current => ({ ...current, [key]: value }))
   const toggle = id => setSelected(current => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next })
@@ -190,7 +193,7 @@ export default function HrOpening() {
     <PageHeader eyebrow={[closed ? 'Closed' : null, opening.employmentType, opening.location].filter(Boolean).join(' · ') || 'Job opening'} title={opening.title} lede={lede}>
       {confirm === 'delete'
         ? <span className="hr-confirm" role="alertdialog" aria-label="Delete this opening">
-          <span>Delete this opening and its {plural(opening.candidateCount, 'resume')}?</span>
+          <span>Delete this opening and its {plural(opening.candidateCount, 'resume')}?{freePlan && <small className="hr-confirm-note">It will still count as 1 of your {account.openingLimit} free openings.</small>}</span>
           <button className="hr-btn hr-btn--danger" type="button" onClick={() => hrApi.deleteOpening(openingId).then(() => navigate('/hr/openings', { replace: true })).catch(problem => { setError(problem.message); setConfirm(null) })}>Delete</button>
           <button className="hr-btn hr-btn--ghost" type="button" onClick={() => setConfirm(null)}>Cancel</button>
         </span>
@@ -222,7 +225,8 @@ export default function HrOpening() {
         <Icon name="upload" />
         <div>
           <b>{room > 0 ? 'Drop resumes here' : 'This opening is full'}</b>
-          <span>PDF, DOCX or TXT · {opening.candidateCount} of {HR_RESUMES_PER_OPENING} resumes · duplicates are skipped</span>
+          <span>PDF, DOCX or TXT · {opening.candidateCount} of {resumeLimit} resumes{freePlan ? ' on the free plan' : ''} · duplicates are skipped</span>
+          {freePlan && room <= 0 && <span><Link to="/hr/plan">Upgrade to Hiring Pro</Link> for up to 50 resumes per opening.</span>}
         </div>
       </div>
       <button className="hr-btn hr-btn--primary" type="button" disabled={room <= 0} onClick={() => inputRef.current?.click()}>Choose files</button>

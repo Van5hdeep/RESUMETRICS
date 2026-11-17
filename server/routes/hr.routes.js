@@ -5,7 +5,7 @@ import { env } from '../config/env.js'
 import { AIBusyError } from '../ai/providerBudget.js'
 import { createHrAuth, DEMO_EMAIL, DEMO_PROFILE, demoIdFor, HR_DEMO_MS, HR_SESSION_MS, hashPassword, hrIdFor, verifyPassword } from '../hr/hrAuth.js'
 import { checkHrDetails, checkNewPassword } from '../../shared/hrRegistration.js'
-import { HR_DOC_ID, HrStoreError, hrStore } from '../db/hrStore.js'
+import { HR_DOC_ID, HrStoreError, hrStore, openingFullError } from '../db/hrStore.js'
 import { createUserAiLimits } from '../middleware/limits.js'
 import { createFirestoreRateLimitStore } from '../middleware/persistentRateLimit.js'
 import { createDailyTokenBudget, trackAiUsageFor } from '../ai/usage.js'
@@ -13,7 +13,6 @@ import demoFixture from '../hr/demoFixture.json' with { type: 'json' }
 import { normalizeResumeData } from '../services/resumeData.js'
 import { extractCompleteResumeDocument, extractSourceFallbackDocument, normalizeResumeDocument } from '../services/resumeExtraction.js'
 import { candidatesCsv, candidateSummary, rankCandidates, scoreCandidate, weightsFor } from '../../shared/hrScoring.js'
-import { HR_RESUMES_PER_OPENING } from '../../shared/hrPlans.js'
 
 // A resume is a few pages; anything far longer is not a resume and would spend the AI budget for nothing.
 const MAX_RESUME_CHARACTERS = 60_000
@@ -312,7 +311,8 @@ export function createHrRouter({
     try {
       const opening = await store.getOpening(request.hrUser.id, request.params.openingId)
       if (opening.status === 'closed') return fail(response, new HrStoreError('closed', 'This opening is closed. Reopen it to add resumes.'))
-      if (opening.candidateCount >= HR_RESUMES_PER_OPENING) return fail(response, new HrStoreError('opening_full', `An opening holds up to ${HR_RESUMES_PER_OPENING} resumes.`, { limit: HR_RESUMES_PER_OPENING }))
+      const { resumeLimit } = await store.getAccount(request.hrUser.id)
+      if (opening.candidateCount >= resumeLimit) return fail(response, openingFullError(resumeLimit))
       const twin = await store.findDuplicate(request.hrUser.id, opening.id, { fileHash })
       if (twin) return fail(response, new HrStoreError('duplicate', `Already in this opening${twin.resumeData?.fullName ? ` as ${twin.resumeData.fullName}` : ''}.`))
       const { resumeData, parsedBy } = await read(source)

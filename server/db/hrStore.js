@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { getConnectionStore } from '../services/firebaseAdmin.js'
-import { HR_FREE_OPENING_LIMIT, HR_RESUMES_PER_OPENING, isHrPro } from '../../shared/hrPlans.js'
+import { HR_FREE_OPENING_LIMIT, HR_FREE_RESUMES_PER_OPENING, isHrPro, resumesPerOpening } from '../../shared/hrPlans.js'
 import { CANDIDATE_STATUSES, descriptionLines, EMPLOYMENT_TYPES, validateWeights } from '../../shared/hrScoring.js'
 import { extractJd } from '../../shared/jdExtract.js'
 import { verificationFor } from '../../shared/hrRegistration.js'
@@ -96,7 +96,7 @@ const toCandidate = (id, raw, index = 0) => ({
   createdAt: toIso(raw.createdAt)
 })
 
-const PLAN_TERMS = ['monthly', 'yearly', 'lifetime']
+const PLAN_TERMS = ['monthly', 'yearly', 'lifetime', 'demo']
 /** The plan as the portal may see it: known fields only (how or when it was granted stays on the server). */
 export function publicHrPlan(plan) {
   if (!plan || typeof plan !== 'object' || plan.tier !== 'pro') return { tier: 'free' }
@@ -110,6 +110,16 @@ export function publicHrPlan(plan) {
 
 const emailOf = resumeData => String(resumeData?.email ?? '').trim().toLowerCase()
 const closedError = () => new HrStoreError('closed', 'This opening is closed. Reopen it to make changes.')
+
+/**
+ * The opening has as many resumes as the plan allows. On Free that is a plan limit (upgrade for more); on Pro the
+ * opening is simply full.
+ */
+export function openingFullError(limit) {
+  return limit <= HR_FREE_RESUMES_PER_OPENING
+    ? new HrStoreError('plan_limit', `The free plan holds ${limit} resumes per opening. Upgrade to Hiring Pro for up to 50.`, { limit })
+    : new HrStoreError('opening_full', `An opening holds up to ${limit} resumes.`, { limit })
+}
 const MAX_BULK = 50
 
 /** { blind?, weights?, status? } from the opening page; anything else is ignored. */
@@ -149,6 +159,7 @@ export function createHrStore({ getDb = getConnectionStore, timestamp = () => Fi
       planDetails: publicHrPlan(raw.plan),
       openingsCreated: used,
       openingLimit: pro ? null : HR_FREE_OPENING_LIMIT,
+      resumeLimit: resumesPerOpening(raw.plan, now()),
       details,
       verification: details ? verificationFor(details) : null,
       demo: raw.demo === true,
@@ -197,12 +208,13 @@ export function createHrStore({ getDb = getConnectionStore, timestamp = () => Fi
 
   /**
    * A private demo workspace: the demo person and company, one sample opening and its sample resumes, all made up
-   * (server/hr/demoFixture.json). It expires at `expiresAt` (ms) and is deleted by sweepExpiredDemos.
+   * (server/hr/demoFixture.json). It is on Hiring Pro until it expires at `expiresAt` (ms), so visitors can try
+   * unlimited openings; the demo's small daily AI allowance still bounds what it can spend. sweepExpiredDemos deletes it.
    */
   async function createDemoAccount(hrId, { email, profile, fixture, expiresAt }) {
     const opening = validateOpeningFields(fixture.opening)
     const openingId = randomUUID()
-    const batch = [[accountRef(hrId), { email, demo: true, demoExpiresAt: expiresAt, details: { ...profile }, plan: { tier: 'free' }, openingsCreated: 1, sessionVersion: 0, createdAt: timestamp() }]]
+    const batch = [[accountRef(hrId), { email, demo: true, demoExpiresAt: expiresAt, details: { ...profile }, plan: { tier: 'pro', status: 'active', term: 'demo', currentPeriodEnd: new Date(expiresAt).toISOString() }, openingsCreated: 1, sessionVersion: 0, createdAt: timestamp() }]]
     batch.push([openingsOf(hrId).doc(openingId), { ...opening, candidateCount: fixture.candidates.length, nextSerial: fixture.candidates.length, status: 'open', blind: false, weights: null, createdAt: timestamp(), updatedAt: timestamp() }])
     fixture.candidates.forEach((candidate, index) => {
       batch.push([candidatesOf(hrId, openingId).doc(randomUUID()), { serial: index + 1, fileName: text(candidate.fileName, 160), fileHash: '', resumeData: candidate.resumeData, parsedBy: 'ai', status: 'new', reason: '', decidedAt: null, createdAt: timestamp() }])
@@ -342,7 +354,10 @@ export function createHrStore({ getDb = getConnectionStore, timestamp = () => Fi
     return getOpening(hrId, openingId)
   }
 
-  /** Removes the opening and its resumes. The opening still counts towards the free plan's total. */
+  /**
+   * Removes the opening and its resumes. openingsCreated is NOT lowered: on the free plan a deleted opening still
+   * counts towards the lifetime total, so deleting and re-creating can't get around the limit.
+   */
   async function deleteOpening(hrId, openingId) {
     await getDb().recursiveDelete(openingsOf(hrId).doc(openingId))
   }
@@ -374,12 +389,14 @@ export function createHrStore({ getDb = getConnectionStore, timestamp = () => Fi
     const openingRef = openingsOf(hrId).doc(openingId)
     const email = emailOf(resumeData)
     await getDb().runTransaction(async transaction => {
+      const account = await transaction.get(accountRef(hrId))
       const opening = await readOpening(transaction, openingRef, { open: true })
       const existing = (await transaction.get(candidatesOf(hrId, openingId))).docs.map(doc => doc.data())
       const twin = existing.find(item => (fileHash && item.fileHash === fileHash) || (email && emailOf(item.resumeData) === email))
       if (twin) throw new HrStoreError('duplicate', `Already in this opening${twin.resumeData?.fullName ? ` as ${twin.resumeData.fullName}` : ''}.`)
       const count = opening.data().candidateCount ?? 0
-      if (count >= HR_RESUMES_PER_OPENING) throw new HrStoreError('opening_full', `An opening holds up to ${HR_RESUMES_PER_OPENING} resumes.`, { limit: HR_RESUMES_PER_OPENING })
+      const limit = resumesPerOpening(account.exists ? account.data().plan : null, now())
+      if (count >= limit) throw openingFullError(limit)
       const serial = Math.max(Number(opening.data().nextSerial) || 0, existing.length) + 1
       transaction.set(candidatesOf(hrId, openingId).doc(id), { serial, fileName: text(fileName, 160), fileHash: text(fileHash, 64), resumeData, parsedBy: parsedBy === 'basic' ? 'basic' : 'ai', status: 'new', reason: '', decidedAt: null, createdAt: timestamp() })
       transaction.update(openingRef, { candidateCount: count + 1, nextSerial: serial })

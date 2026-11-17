@@ -88,7 +88,7 @@ export default function HrLogin() {
         <p className="hr-login-switch">New to Resumetrics Hiring? <Link to="/hr/register">Create an HR account</Link></p>
         <div className="hr-login-demo">
           <button className="hr-btn hr-btn--ghost hr-btn--block" type="button" onClick={openDemo} disabled={busy || demoBusy}>{demoBusy ? 'Opening the demo…' : 'Explore the demo'}</button>
-          <span>A private sample workspace with made-up candidates, just for you. It is deleted after 24 hours or when you sign out.</span>
+          <span>A private sample workspace on Hiring Pro, with made-up candidates, just for you. It is deleted after 24 hours or when you sign out.</span>
         </div>
         <p className="hr-login-switch">Looking for your own resume? <Link to="/login">Candidate sign-in</Link></p>
         <p className="hr-login-legal"><Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy</Link></p>
