@@ -2,7 +2,7 @@ import cors from 'cors'
 import express from 'express'
 import { env } from './config/env.js'
 import aiRoutes from './routes/ai.routes.js'
-import githubRoutes from './routes/github.routes.js'
+import { createGitHubRouter } from './routes/github.routes.js'
 import resumeRoutes from './routes/resume.routes.js'
 import nimbusRoutes from './routes/nimbus.routes.js'
 import jdRoutes from './routes/jd.routes.js'
@@ -10,8 +10,9 @@ import userRoutes from './routes/user.routes.js'
 import jobsRoutes from './routes/jobs.routes.js'
 import { createHrRouter } from './routes/hr.routes.js'
 import { createRequirePro } from './middleware/requirePro.js'
-import { initializeFirebaseAdmin, requireUser } from './services/firebaseAdmin.js'
+import { createRequireUser, initializeFirebaseAdmin, requireUser } from './services/firebaseAdmin.js'
 import { createIpLimiter, createUserAiLimits } from './middleware/limits.js'
+import { securityHeaders } from './middleware/securityHeaders.js'
 import { createMemoryUsageStore, enforceDailyTokenBudget, setUsageStore, trackAiUsage } from './ai/usage.js'
 import { createFirestoreUsageStore, createResilientUsageStore } from './ai/usageStore.js'
 
@@ -19,6 +20,8 @@ import { createFirestoreUsageStore, createResilientUsageStore } from './ai/usage
 setUsageStore(createResilientUsageStore(createFirestoreUsageStore(), createMemoryUsageStore()))
 
 const app = express()
+app.disable('x-powered-by')
+app.use(securityHeaders)
 const allowedOrigins = env.webOrigin.split(',').map(origin => origin.trim()).filter(Boolean)
 const allowsLocalDevelopment = allowedOrigins.some(origin => {
   try {
@@ -41,12 +44,13 @@ function isAllowedOrigin(origin) {
   }
 }
 
-app.use(cors({
-  origin(origin, callback) {
-    if (!origin || isAllowedOrigin(origin)) return callback(null, true)
-    return callback(new Error('Origin is not allowed by CORS.'))
-  }
-}))
+// A page on another site gets no CORS headers (so its browser can't read our answers) and a plain 403, not a 500.
+const corsForAllowed = cors()
+app.use((request, response, next) => {
+  const origin = request.get('origin')
+  if (!origin || isAllowedOrigin(origin)) return corsForAllowed(request, response, next)
+  return response.status(403).json({ ok: false, code: 'origin', error: 'This site is not allowed to call the Resumetrics API.' })
+})
 // Behind a hosting proxy, rate limits must see the client's address, not the proxy's (RESUMETRICS_TRUST_PROXY hops).
 app.set('trust proxy', env.trustProxy)
 
@@ -61,17 +65,22 @@ const documentJson = express.json({ limit: '2mb' })
 
 app.use('/api', ipLimiter)
 app.use('/api/ai', aiRoutes)
-app.use('/api/github', smallJson, githubRoutes)
+// The GitHub evidence scan calls the AI model, so it gets the same per-user limits and daily allowance.
+app.use('/api/github', smallJson, createGitHubRouter({ aiGuard: [...userAiLimits, enforceDailyTokenBudget, trackAiUsage] }))
 // Resume import, NIMBUS and job fixes call the AI model: signed-in users only, within their limits.
 app.use('/api/resume', requireUser, userAiLimits, enforceDailyTokenBudget, documentJson, trackAiUsage, resumeRoutes)
 app.use('/api/nimbus', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, nimbusRoutes)
 // Job tailoring and the job tracker are Pro features (shared/plans.js).
 app.use('/api/jd', requireUser, createRequirePro({ feature: 'jobTailoring' }), userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, jdRoutes)
-app.use('/api/jobs', requireUser, createRequirePro({ feature: 'jobTracker' }), smallJson, jobsRoutes)
+const requireJobsUser = createRequireUser({ signInMessage: 'Sign in to Resumetrics to use the job tracker.', unavailableMessage: 'Sign-in can’t be checked on the server right now. Please try again in a few minutes.' })
+app.use('/api/jobs', requireJobsUser, createRequirePro({ feature: 'jobTracker' }), smallJson, jobsRoutes)
 // Saved resumes: signed-in users only, scoped to their own uid. Body cap = the 500 KB resume limit plus the request envelope.
 app.use('/api/user', express.json({ limit: '600kb' }), userRoutes)
 // HR portal: its own email + password session (server/hr/hrAuth.js), separate from candidate Firebase accounts.
 app.use('/api/hr', createHrRouter())
+
+// Unknown API paths answer in JSON like every other API error (not Express's HTML page).
+app.use('/api', (_request, response) => response.status(404).json({ ok: false, code: 'not_found', error: 'This API route does not exist.' }))
 
 try {
   initializeFirebaseAdmin()
@@ -81,9 +90,14 @@ try {
 }
 
 app.use((error, _request, response, _next) => {
-  console.error('Unhandled server error:', error)
+  if (error?.status >= 400 && error?.status < 500 && error?.type) console.warn('Refused request:', error.type)
+  else console.error('Unhandled server error:', error)
   if (error?.type === 'entity.too.large') {
     return response.status(413).json({ ok: false, error: 'This document is too large to send safely. Split it into smaller files and try again.' })
+  }
+  // A request body that isn't valid JSON is the sender's mistake, not a server fault.
+  if (error?.type === 'entity.parse.failed' || error?.type === 'encoding.unsupported' || error?.type === 'charset.unsupported') {
+    return response.status(400).json({ ok: false, code: 'invalid', error: 'The request body could not be read. Send valid JSON.' })
   }
   response.status(500).json({ ok: false, error: 'The server could not process this request.' })
 })

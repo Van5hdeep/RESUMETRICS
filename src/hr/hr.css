@@ -165,7 +165,7 @@
 .hr-best { display: grid; gap: 2px; }
 .hr-table-wrap { overflow-x: auto; }
 .hr-table--ranked td { white-space: nowrap; }
-.hr-table--ranked td:nth-child(2) { white-space: normal; min-width: 170px; }
+.hr-table--ranked td:nth-child(3) { white-space: normal; min-width: 170px; }
 .hr-table--ranked td:last-child { white-space: normal; min-width: 180px; }
 .hr-rank { color: var(--hr-faint); width: 36px; }
 .hr-col-meter { min-width: 88px; }
@@ -631,4 +631,37 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .hr-toggle-thumb, .hr-price-track, .hr-cost-bar i { transition: none; }
+}
+
+/* ---------- audit fixes (2026-11-17) ---------- */
+.hr-login-demo { display: grid; gap: 8px; }
+.hr-login-legal { font-size: 12px; color: var(--hr-faint); text-align: center; }
+.hr-login-legal a { color: var(--hr-muted); text-decoration: underline; text-underline-offset: 2px; }
+.hr-agree a { color: var(--hr-accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Phones: the sign-in form comes first; the violet side shrinks to a short brand band without the drawing. */
+@media (max-width: 860px) {
+  .hr-login-side { gap: 10px; padding: 20px 20px 22px; }
+  .hr-login-side h2 { font-size: 26px; margin-top: 6px; }
+  .hr-login-side > p, .hr-login-art { display: none; }
+}
+
+/* Phones: ranked resumes become cards (tick, rank, name, score; then decision and missing must-haves).
+   The category meters, counts and years stay one tap away in the resume panel. */
+@media (max-width: 700px) {
+  .hr-table--ranked { display: block; width: 100%; min-width: 0; }
+  .hr-table--ranked thead, .hr-table--ranked tbody { display: block; }
+  .hr-table--ranked thead tr { display: flex; align-items: center; padding: 8px 14px; }
+  .hr-table--ranked thead th:not(.hr-col-check) { display: none; }
+  .hr-table--ranked tbody tr { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; padding: 12px 14px; border-top: 1px solid var(--hr-line); }
+  .hr-table--ranked td { display: block; padding: 0; border: 0; white-space: normal; min-width: 0; }
+  .hr-table--ranked td:nth-child(3) { min-width: 0; }
+  .hr-table--ranked td:last-child { min-width: 0; }
+  .hr-table--ranked td.hr-col-meter, .hr-table--ranked td:nth-last-child(2), .hr-table--ranked td:nth-last-child(3) { display: none; }
+  .hr-table--ranked td:nth-child(5), .hr-table--ranked td:last-child { grid-column: 3 / 5; }
+  .hr-table--ranked td:nth-child(3) b { overflow-wrap: anywhere; }
+  /* A card is highlighted as a whole, not cell by cell. */
+  .hr-table--ranked .hr-row-link:hover td, .hr-table--ranked .hr-row-link.is-selected td, .hr-table--ranked .hr-row-link.is-picked td { background: none; box-shadow: none; }
+  .hr-table--ranked .hr-row-link:hover, .hr-table--ranked .hr-row-link.is-picked { background: var(--accent-softer, #f7f5ff); }
+  .hr-table--ranked .hr-row-link.is-selected { background: var(--accent-softer, #f7f5ff); box-shadow: inset 3px 0 0 var(--hr-accent); }
 }

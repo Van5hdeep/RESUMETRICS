@@ -96,6 +96,18 @@ const toCandidate = (id, raw, index = 0) => ({
   createdAt: toIso(raw.createdAt)
 })
 
+const PLAN_TERMS = ['monthly', 'yearly', 'lifetime']
+/** The plan as the portal may see it: known fields only (how or when it was granted stays on the server). */
+export function publicHrPlan(plan) {
+  if (!plan || typeof plan !== 'object' || plan.tier !== 'pro') return { tier: 'free' }
+  return {
+    tier: 'pro',
+    status: typeof plan.status === 'string' ? plan.status : 'inactive',
+    term: PLAN_TERMS.includes(plan.term) ? plan.term : null,
+    currentPeriodEnd: typeof plan.currentPeriodEnd === 'string' ? plan.currentPeriodEnd : null
+  }
+}
+
 const emailOf = resumeData => String(resumeData?.email ?? '').trim().toLowerCase()
 const closedError = () => new HrStoreError('closed', 'This opening is closed. Reopen it to make changes.')
 const MAX_BULK = 50
@@ -131,7 +143,88 @@ export function createHrStore({ getDb = getConnectionStore, timestamp = () => Fi
     const pro = isHrPro(raw.plan, now())
     const used = Number.isInteger(raw.openingsCreated) ? raw.openingsCreated : 0
     const details = raw.details ? { ...raw.details, email: raw.email ?? '' } : null
-    return { email: raw.email ?? '', plan: pro ? 'pro' : 'free', planDetails: raw.plan ?? { tier: 'free' }, openingsCreated: used, openingLimit: pro ? null : HR_FREE_OPENING_LIMIT, details, verification: details ? verificationFor(details) : null }
+    return {
+      email: raw.email ?? '',
+      plan: pro ? 'pro' : 'free',
+      planDetails: publicHrPlan(raw.plan),
+      openingsCreated: used,
+      openingLimit: pro ? null : HR_FREE_OPENING_LIMIT,
+      details,
+      verification: details ? verificationFor(details) : null,
+      demo: raw.demo === true,
+      demoExpiresAt: raw.demo === true && Number.isFinite(raw.demoExpiresAt) ? new Date(raw.demoExpiresAt).toISOString() : null,
+      // Only accounts registered through the sign-up form have a stored password to change.
+      canChangePassword: Boolean(raw.credentials) && raw.demo !== true
+    }
+  }
+
+  /** What the session check needs: whether the account exists, its session version, and the demo expiry. */
+  async function getSessionState(hrId) {
+    const snapshot = await accountRef(hrId).get()
+    if (!snapshot.exists) return null
+    const raw = snapshot.data()
+    return { sessionVersion: Number.isInteger(raw.sessionVersion) ? raw.sessionVersion : 0, demo: raw.demo === true, demoExpiresAt: Number.isFinite(raw.demoExpiresAt) ? raw.demoExpiresAt : null }
+  }
+
+  /** Ends every session of this account (sign-out on all devices). Returns the new version. */
+  async function bumpSessionVersion(hrId) {
+    const ref = accountRef(hrId)
+    return getDb().runTransaction(async transaction => {
+      const snapshot = await transaction.get(ref)
+      if (!snapshot.exists) throw new HrStoreError('not_found', 'This HR account no longer exists.')
+      const next = (Number.isInteger(snapshot.data().sessionVersion) ? snapshot.data().sessionVersion : 0) + 1
+      transaction.set(ref, { sessionVersion: next }, { merge: true })
+      return next
+    })
+  }
+
+  /**
+   * Replaces the stored password after `check(currentCredentials)` approves, and ends every other session.
+   * Returns the new session version. Accounts without a stored password (environment logins, demos) are refused.
+   */
+  async function changePassword(hrId, check, credentials) {
+    const ref = accountRef(hrId)
+    return getDb().runTransaction(async transaction => {
+      const snapshot = await transaction.get(ref)
+      const raw = snapshot.exists ? snapshot.data() : null
+      if (!raw?.credentials || raw.demo === true) throw new HrStoreError('invalid', 'This account’s password can’t be changed here.')
+      if (!check(raw.credentials)) throw new HrStoreError('wrong_password', 'Your current password is not correct.')
+      const next = (Number.isInteger(raw.sessionVersion) ? raw.sessionVersion : 0) + 1
+      transaction.set(ref, { credentials, sessionVersion: next, passwordChangedAt: timestamp() }, { merge: true })
+      return next
+    })
+  }
+
+  /**
+   * A private demo workspace: the demo person and company, one sample opening and its sample resumes, all made up
+   * (server/hr/demoFixture.json). It expires at `expiresAt` (ms) and is deleted by sweepExpiredDemos.
+   */
+  async function createDemoAccount(hrId, { email, profile, fixture, expiresAt }) {
+    const opening = validateOpeningFields(fixture.opening)
+    const openingId = randomUUID()
+    const batch = [[accountRef(hrId), { email, demo: true, demoExpiresAt: expiresAt, details: { ...profile }, plan: { tier: 'free' }, openingsCreated: 1, sessionVersion: 0, createdAt: timestamp() }]]
+    batch.push([openingsOf(hrId).doc(openingId), { ...opening, candidateCount: fixture.candidates.length, nextSerial: fixture.candidates.length, status: 'open', blind: false, weights: null, createdAt: timestamp(), updatedAt: timestamp() }])
+    fixture.candidates.forEach((candidate, index) => {
+      batch.push([candidatesOf(hrId, openingId).doc(randomUUID()), { serial: index + 1, fileName: text(candidate.fileName, 160), fileHash: '', resumeData: candidate.resumeData, parsedBy: 'ai', status: 'new', reason: '', decidedAt: null, createdAt: timestamp() }])
+    })
+    await getDb().runTransaction(async transaction => {
+      const existing = await transaction.get(accountRef(hrId))
+      if (existing.exists) throw new HrStoreError('exists', 'This demo workspace already exists.')
+      for (const [ref, value] of batch) transaction.set(ref, value)
+    })
+    return getAccount(hrId)
+  }
+
+  /** Deletes an account with everything in it (used when a demo visitor signs out). */
+  async function deleteAccount(hrId) {
+    await getDb().recursiveDelete(accountRef(hrId))
+  }
+
+  /** Deletes up to `limit` demo workspaces that have expired. Best effort: called on each new demo. */
+  async function sweepExpiredDemos({ limit = 5 } = {}) {
+    const snapshot = await getDb().collection('hrAccounts').where('demoExpiresAt', '<', now()).limit(limit).get()
+    await Promise.all(snapshot.docs.map(doc => getDb().recursiveDelete(doc.ref)))
+    return snapshot.docs.length
   }
 
   /** The stored password check for a registered account, or null when the account has never registered. */
@@ -335,7 +428,7 @@ export function createHrStore({ getDb = getConnectionStore, timestamp = () => Fi
 
   const deleteCandidate = (hrId, openingId, candidateId) => deleteCandidates(hrId, openingId, [candidateId])
 
-  return { ensureAccount, getAccount, getCredentials, registerAccount, updateDetails, listOpenings, getOpening, createOpening, updateOpening, updateOpeningSettings, deleteOpening, listCandidates, getCandidate, findDuplicate, addCandidate, decide, deleteCandidates, deleteCandidate }
+  return { getSessionState, bumpSessionVersion, changePassword, createDemoAccount, deleteAccount, sweepExpiredDemos, ensureAccount, getAccount, getCredentials, registerAccount, updateDetails, listOpenings, getOpening, createOpening, updateOpening, updateOpeningSettings, deleteOpening, listCandidates, getCandidate, findDuplicate, addCandidate, decide, deleteCandidates, deleteCandidate }
 }
 
 export const hrStore = createHrStore()

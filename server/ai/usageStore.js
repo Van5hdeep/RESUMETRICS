@@ -13,7 +13,9 @@ export function createFirestoreUsageStore({
   increment = amount => FieldValue.increment(amount),
   timestamp = () => FieldValue.serverTimestamp()
 } = {}) {
-  const docFor = (uid, day) => getDb().collection('users').doc(uid).collection('usage').doc(day)
+  // HR portal accounts (ids starting "hr_" or "hrdemo_") keep their usage under hrAccounts/{id}; everyone else under users/{uid}.
+  const parentFor = uid => getDb().collection(/^hr(demo)?_/.test(uid) ? 'hrAccounts' : 'users').doc(uid)
+  const docFor = (uid, day) => parentFor(uid).collection('usage').doc(day)
 
   async function get(uid, day) {
     return rowFrom((await docFor(uid, day).get()).data())

@@ -77,6 +77,12 @@ const csv = candidatesCsv([{ ...rows[0], name: '=HYPERLINK("x")', email: 'a@b.c'
 assert.equal(csv.length, 2)
 assert.match(csv[1], /^1,"'=HYPERLINK\(""x""\)",a@b\.c,/)
 assert.match(csv[1], /"a, b",asha\.pdf$/)
+// Phone numbers stay readable (no stray apostrophe) and still can't start a formula; anything else that could is guarded.
+const phoneRow = candidatesCsv([{ ...rows[0], phone: '+91 90000 12345', headline: '+cmd|calc', fileName: '-2+3' }], weightsFor(opening)).split('\r\n')[1]
+assert.match(phoneRow, /,\(\+91\) 90000 12345,/)
+assert.match(phoneRow, /,'\+cmd\|calc,/)
+assert.match(phoneRow, /,'-2\+3$/)
+assert.doesNotMatch(phoneRow, /,[=+\-@][^,]*/, 'no cell starts with a formula character')
 
 // Bands
 assert.equal(bandOf(75).id, 'strong')

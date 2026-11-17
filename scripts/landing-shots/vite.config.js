@@ -13,6 +13,10 @@ import { DEMO_USER, sampleEvidence, sampleResumes } from './sample.js'
 import { DEFAULT_SETTINGS } from '../../server/db/userStore.js'
 import nimbusRoutes from '../../server/routes/nimbus.routes.js'
 import jdRoutes from '../../server/routes/jd.routes.js'
+import { createHrRouter } from '../../server/routes/hr.routes.js'
+import { createHrAuth } from '../../server/hr/hrAuth.js'
+import { createHrStore } from '../../server/db/hrStore.js'
+import { createFakeFirestore } from '../../tests/helpers/fakeFirestore.js'
 
 const here = fileURLToPath(new URL('.', import.meta.url))
 const root = fileURLToPath(new URL('../..', import.meta.url))
@@ -76,6 +80,11 @@ function demoApi() {
     response.json({ ok: true, job: saved.find(item => item.key === request.params.key) })
   })
   api.delete('/api/jobs/saved/:key', (request, response) => { saved = saved.filter(item => item.key !== request.params.key); response.json({ ok: true }) })
+
+  // The HR portal's own "Explore the demo" workspace, kept in memory (the fake Firestore the tests use).
+  const hrDb = createFakeFirestore()
+  const pass = (_request, _response, next) => next()
+  api.use('/api/hr', createHrRouter({ store: createHrStore({ getDb: () => hrDb, timestamp: hrDb.timestamp }), auth: createHrAuth({ accounts: [], secret: 'landing-shots' }), aiLimits: pass, aiBudget: pass, limitStore: () => undefined }))
 
   api.use('/api/nimbus', nimbusRoutes)
   api.use('/api/jd', jdRoutes)

@@ -51,6 +51,10 @@ service-account/
 *.md
 !README.md
 !DESIGN.md
+!THIRD_PARTY_NOTICES.md
+# Project docs and notes that ship with the code (the *.md rule above is for local working notes only).
+!/docs/**/*.md
+!src/components/templates/OVERLEAF.md
 dashboard-integration-snippet.txt
 .env.vercel
 

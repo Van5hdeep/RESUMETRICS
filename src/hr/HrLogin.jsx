@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { getSession, signIn } from './hrApi.js'
+import { getSession, signIn, startDemo } from './hrApi.js'
 import BrandLogo from '../components/BrandLogo.jsx'
 
 // Decorative ranked shortlist: the portal's one idea, drawn.
@@ -36,8 +36,21 @@ export default function HrLogin() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(location.state?.ended ? 'Your session ended. Sign in again.' : '')
   const [busy, setBusy] = useState(false)
+  const [demoBusy, setDemoBusy] = useState(false)
 
   if (getSession()) return <Navigate to="/hr" replace />
+
+  const openDemo = async () => {
+    setError('')
+    setDemoBusy(true)
+    try {
+      await startDemo()
+      navigate('/hr', { replace: true })
+    } catch (problem) {
+      setError(problem.message)
+      setDemoBusy(false)
+    }
+  }
 
   const submit = async event => {
     event.preventDefault()
@@ -69,12 +82,16 @@ export default function HrLogin() {
           <span>Password</span>
           <input type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} required />
         </label>
-        <button className="hr-btn hr-btn--primary hr-btn--block" type="submit" disabled={busy || !email.trim() || !password}>
+        <button className="hr-btn hr-btn--primary hr-btn--block" type="submit" disabled={busy || demoBusy || !email.trim() || !password}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
         <p className="hr-login-switch">New to Resumetrics Hiring? <Link to="/hr/register">Create an HR account</Link></p>
-        <p className="hr-login-demo">Demo account: <code>abc@gmail.com</code> · <code>12345</code><span>Vanshdeep Mishra · Resumetrics Demo Pvt. Ltd.</span></p>
+        <div className="hr-login-demo">
+          <button className="hr-btn hr-btn--ghost hr-btn--block" type="button" onClick={openDemo} disabled={busy || demoBusy}>{demoBusy ? 'Opening the demo…' : 'Explore the demo'}</button>
+          <span>A private sample workspace with made-up candidates, just for you. It is deleted after 24 hours or when you sign out.</span>
+        </div>
         <p className="hr-login-switch">Looking for your own resume? <Link to="/login">Candidate sign-in</Link></p>
+        <p className="hr-login-legal"><Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy</Link></p>
       </form>
     </section>
   </main>

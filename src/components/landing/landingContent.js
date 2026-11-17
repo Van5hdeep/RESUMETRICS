@@ -35,4 +35,11 @@ export const screens = [
 
 export const advantages = ['Never invents facts', 'Proof from your code', 'One-click job fixes', 'Jobs that fit you', '24 real templates', 'Private by default', 'Priced in rupees', 'Nothing gets lost']
 
-export const nav = [['NIMBUS', '#nimbus'], ['Inside the app', '#inside']]
+// The HR portal (/hr), in plain words for the "For hiring teams" section.
+export const hiringPoints = [
+  ['Score every resume', 'Each resume gets a score out of 100 for skills, experience, education and keywords from your job post.'],
+  ['Compare at a glance', 'A chart and a ranked list show your strongest candidates first.'],
+  ['Shortlist and export', 'Shortlist or reject in a click, hide names for fair screening, and download the shortlist.']
+]
+
+export const nav = [['NIMBUS', '#nimbus'], ['Inside the app', '#inside'], ['For hiring', '#hiring']]

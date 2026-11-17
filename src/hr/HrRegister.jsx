@@ -74,7 +74,7 @@ export default function HrRegister() {
           <CompanyFields values={values} errors={errors} set={set} />
           <label className={`hr-check hr-agree${errors.agree ? ' has-error' : ''}`}>
             <input type="checkbox" checked={values.agree} onChange={event => set('agree', event.target.checked)} />
-            <span>I hire for this company and I’m allowed to share its details.</span>
+            <span>I hire for this company and I’m allowed to share its details. I accept the <Link to="/terms" target="_blank">Terms</Link> and the <Link to="/privacy" target="_blank">Privacy Policy</Link>, including that candidates’ resumes I upload are handled as described there.</span>
           </label>
           {errors.agree && <small className="hr-field-error" role="alert">{errors.agree}</small>}
           <div className="hr-register-actions">

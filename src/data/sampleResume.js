@@ -7,8 +7,9 @@ export const landingResumeData = {
   phone: '+91 98765 43210',
   location: 'Pune, Maharashtra',
   links: [
-    { label: 'linkedin.com/in/aaravmehta', url: 'linkedin.com/in/aaravmehta' },
-    { label: 'github.com/aaravmehta', url: 'github.com/aaravmehta' }
+    // Placeholder handles on the reserved .example domain, so the sample never points at a real person's profile.
+    { label: 'linkedin.example/aarav-mehta', url: 'linkedin.example/aarav-mehta' },
+    { label: 'github.example/aarav-mehta', url: 'github.example/aarav-mehta' }
   ],
   summary: 'Full stack developer who ships product features end to end, from data model to polished UI. Built a real-time analytics dashboard used by 12,000 people every week and cut page load time by 38% on a high-traffic storefront. Comfortable owning features across React, Node.js and PostgreSQL.',
   experience: [
