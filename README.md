@@ -38,7 +38,7 @@ and get them scored and ranked against the job.
 - [Project structure](#project-structure)
 - [Routes and API](#routes-and-api)
 - [Scripts](#scripts)
-- [Testing](#testing)
+- [Testing and evaluation](#testing-and-evaluation)
 - [Deployment](#deployment)
 - [Contributing](#contributing)
 - [License](#license)
@@ -268,15 +268,64 @@ and service-account data stay on the server.
 
 ---
 
-## Testing
+## Testing and evaluation
+
+Run these before every pull request. CI runs the first two on every push.
 
 ```bash
 npm test
+npm run build
 ```
 
-The tests use plain Node and an in-memory Firestore, so they need no keys or network. They cover the API routes
-(including the HR portal and its sessions), plan limits and quotas, HR and job-post scoring, the NIMBUS fact guard,
-GitHub evidence, cover letters and resume saving and versions.
+### 1. Automated tests (`npm test`)
+
+Every `tests/*.test.js` file runs in its own Node process; the run stops at the first failure. They use an in-memory Firestore (`tests/helpers/fakeFirestore.js`), fake GitHub and Firebase sign-in, and the mock AI provider, so they need **no keys, no network and no real database**, and they never spend AI quota.
+
+| Area | Files | What they prove |
+| --- | --- | --- |
+| Security and access | `aiRouteGuards`, `githubRoutes`, `hrSessions`, `hrRoutes`, `requireUser`, `userRoutes`, `limits`, `firestoreRules`, `safeUrl` | Every route that can reach the AI model sits behind sign-in, per-user limits, the daily allowance and usage tracking (found from the import graph, so a new AI route can't be missed); a GitHub installation is linked only when the signed-in GitHub user can reach it; forged, tampered, expired and signed-out HR tokens are refused; demo workspaces are private and expire; password changes end old sessions; sign-in limits hold across instances; browsers can't touch Firestore directly; only safe URLs reach `href` and `<img src>`. |
+| Data and plans | `resumeStore`, `resumeQuota`, `resumeVersions`, `resumeFields`, `saveQueue`, `workspacePersistence`, `evidenceStore`, `usageStore`, `aiUsage`, `jobs` | Saves with conflict detection, free-plan limits, version history, offline save queue, usage counters and the job tracker. |
+| AI behaviour (mocked) | `mockProvider`, `providerBudget`, `nimbusPlan`, `applyNimbusOperations`, `factGuard`, `letterPlan`, `letterModel`, `letterLint` | NIMBUS edit plans are valid and applied correctly, invented facts are caught, the provider budget queues instead of failing, cover letters stay within their rules. |
+| Scoring and parsing | `hrScoring`, `jdScoring`, `jdKeywords`, `jdExtract`, `skillGroups`, `githubEvidence`, `githubScan`, `fixPreview` | Resume ranking, CSV export (no spreadsheet formulas), job-post keyword matching and GitHub evidence maths. |
+| Editor | `inlineMarks`, `sectionProgress`, `sectionSettings`, `railSizing`, `signature` | Rich-text marks, form progress, section settings, layout sizing and signature clean-up. |
+
+### 2. Resume store against the Firestore emulator (`npm run test:emulator`)
+
+Runs the resume store against the Firestore emulator (needs the Firebase CLI and Java). Use it after changing `server/db/` or `firestore.rules`.
+
+### 3. AI quality evaluation (`npm run ai:eval`)
+
+```bash
+npm run ai:eval -- --task all
+npm run ai:eval -- --task nimbus --model openai/gpt-oss-120b
+```
+
+Sends a fixed set of synthetic cases (NIMBUS turns, cover letters, job-post parsing and job fixes) to the **real model** and writes a pass/fail report with first-try rate and timing to `.planning/evals/`. It uses the key in `server/.env.local` and spends real tokens, so run it when changing prompts, models or the AI task code, not on every commit. `npm run ai:ping` is the one-prompt smoke test.
+
+### 4. Visual check pages
+
+`tests/*.html` are browser pages for checking templates, the editor, cover letters, the evidence screen, the resume picker and the scratch builder by eye. With `npm run dev` running, open for example [http://localhost:5173/tests/template-rendering.html](http://localhost:5173/tests/template-rendering.html).
+
+### 5. Continuous integration
+
+- **GitHub Actions** (`.github/workflows/ci.yml`): `npm ci`, `npm test` and `npm run build` on every push and pull request.
+- **CodeQL** code scanning on pull requests: new high-severity alerts block the merge.
+- **Vercel** builds a preview deployment for every pull request.
+
+### 6. Manual checks before a release
+
+Automated tests can't sign in to Google or GitHub, so check these by hand on the preview deployment:
+
+1. Google sign-in, create a resume, edit it, reload: the change is still there.
+2. Import a PDF resume and a LinkedIn PDF export.
+3. Connect GitHub and run an evidence check (needs the GitHub App configured for that domain).
+4. HR portal: "Explore the demo", upload a resume, shortlist it, export the CSV, sign out (the demo is deleted).
+5. The same pages at phone width (375 px): no sideways scrolling.
+6. Production settings: `RESUMETRICS_SESSION_SECRET`, `FIREBASE_SERVICE_ACCOUNT_JSON` and the AI key are set on Vercel.
+
+### Latest full audit (17 November 2026)
+
+Both apps were reviewed for UI, UX, function, authentication and documentation: server code read line by line, every API probed with forged, malformed and cross-site requests, both portals clicked through at desktop and phone widths. The 34 findings were fixed in pull request #40, with regression tests for each security fix (`githubRoutes`, `hrSessions`, `aiRouteGuards`, `safeUrl`). Still open: HR forgot-password and email verification (need an email provider), a legal review of the Privacy Policy and Terms, and a lint step in CI.
 
 ---
 

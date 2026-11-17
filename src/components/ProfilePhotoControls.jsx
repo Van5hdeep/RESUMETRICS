@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { safeImageSrc } from '../utils/safeUrl.js'
 
 const FRAME = 280
 // The visible crop shape sits this far inside the frame; the dimmed border around it is not saved.
@@ -131,7 +132,7 @@ function PhotoCropDialog({ source, shape = 'circle', initialCrop, onApply, onCan
       >
         <img
           ref={imageRef}
-          src={source}
+          src={safeImageSrc(source)}
           alt=""
           draggable="false"
           onLoad={onImageLoad}
@@ -178,7 +179,7 @@ export default function ProfilePhotoControls({ photo, onChange, error = '' }) {
   return <aside className="panel section-panel profile-photo-editor" aria-label="Profile photo">
     <div><span className="eyebrow">Profile photo</span><h2>Your photo</h2></div>
     {photo?.uploaded && <div className="profile-photo-summary">
-      <img className={`profile-photo-thumb is-${shape === 'circle' ? 'circle' : 'rounded'}`} src={photo.source} alt="Your profile photo as it appears on the resume" />
+      <img className={`profile-photo-thumb is-${shape === 'circle' ? 'circle' : 'rounded'}`} src={safeImageSrc(photo.source)} alt="Your profile photo as it appears on the resume" />
       <div>
         <p className="muted">Drag and zoom to choose exactly what shows.</p>
         <button className="btn btn-secondary" type="button" onClick={() => setCropOpen(true)}>Adjust photo</button>

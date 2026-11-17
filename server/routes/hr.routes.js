@@ -181,7 +181,7 @@ export function createHrRouter({
     else if (typeof newPassword === 'string' && newPassword === currentPassword) errors.newPassword = 'Choose a password you haven’t used here.'
     if (Object.keys(errors).length) return response.status(400).json({ ok: false, code: 'invalid', error: 'Check the highlighted fields.', fields: errors })
     try {
-      const version = await store.changePassword(request.hrUser.id, credentials => verifyPassword(currentPassword, credentials), hashPassword(newPassword))
+      const version = await store.replaceCredentials(request.hrUser.id, credentials => verifyPassword(currentPassword, credentials), hashPassword(newPassword))
       const session = sessionFor({ id: request.hrUser.id, email: request.hrUser.email, sessionVersion: version })
       return response.json({ ok: true, token: session.token, expiresAt: session.expiresAt })
     } catch (error) {
