@@ -19,6 +19,16 @@ function RankingArt() {
   </div>
 }
 
+/** The violet left half shared by sign-in and sign-up. */
+export function HrAuthSide({ title, lede }) {
+  return <section className="hr-login-side">
+    <div className="hr-login-brand"><BrandLogo animate /><em>Hiring</em></div>
+    <h2>{title ?? <>Hire from evidence,<br /><em>not guesswork.</em></>}</h2>
+    <p>{lede ?? 'Describe the job once. Every resume you upload is scored against it and ranked, with the reasons shown.'}</p>
+    <RankingArt />
+  </section>
+}
+
 export default function HrLogin() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -43,12 +53,7 @@ export default function HrLogin() {
   }
 
   return <main className="hr-login">
-    <section className="hr-login-side">
-      <div className="hr-login-brand"><BrandLogo animate /><em>Hiring</em></div>
-      <h2>Hire from evidence,<br /><em>not guesswork.</em></h2>
-      <p>Describe the job once. Every resume you upload is scored against it and ranked, with the reasons shown.</p>
-      <RankingArt />
-    </section>
+    <HrAuthSide />
 
     <section className="hr-login-main">
       <form className="hr-login-form" onSubmit={submit} noValidate>
@@ -67,7 +72,8 @@ export default function HrLogin() {
         <button className="hr-btn hr-btn--primary hr-btn--block" type="submit" disabled={busy || !email.trim() || !password}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
-        <p className="hr-login-demo">Demo account: <code>abc@gmail.com</code> · <code>12345</code></p>
+        <p className="hr-login-switch">New to Resumetrics Hiring? <Link to="/hr/register">Create an HR account</Link></p>
+        <p className="hr-login-demo">Demo account: <code>abc@gmail.com</code> · <code>12345</code><span>Vanshdeep Mishra · Resumetrics Demo Pvt. Ltd.</span></p>
         <p className="hr-login-switch">Looking for your own resume? <Link to="/login">Candidate sign-in</Link></p>
       </form>
     </section>

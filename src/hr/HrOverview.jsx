@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { hrApi } from './hrApi.js'
-import { useHrSession } from './HrApp.jsx'
 import { useNewOpening } from './HrLayout.jsx'
-import { formatDate, Icon, PageHeader, ScoreMark } from './hrUi.jsx'
+import { formatDate, Icon, PageHeader, Pipeline, ScoreMark } from './hrUi.jsx'
 
 const greeting = () => {
   const hour = new Date().getHours()
@@ -23,15 +22,19 @@ export function useOpenings() {
 }
 
 export default function HrOverview() {
-  const { account } = useHrSession()
   const { openings, error } = useOpenings()
   const { start, atLimit } = useNewOpening()
   const navigate = useNavigate()
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
 
-  const resumes = openings?.reduce((sum, opening) => sum + opening.candidateCount, 0) ?? 0
-  const strong = openings?.reduce((sum, opening) => sum + opening.strongCount, 0) ?? 0
-  const left = account.openingLimit === null ? 'Unlimited' : Math.max(0, account.openingLimit - account.openingsCreated)
+  const open = openings?.filter(opening => opening.status !== 'closed') ?? []
+  const sum = (list, pick) => list.reduce((total, opening) => total + pick(opening), 0)
+  const resumes = sum(openings ?? [], opening => opening.candidateCount)
+  const awaiting = sum(open, opening => opening.pipeline?.new ?? 0)
+  const shortlisted = sum(openings ?? [], opening => opening.pipeline?.shortlisted ?? 0)
+  // Open roles with resumes nobody has decided on yet, most waiting first.
+  const attention = open.filter(opening => opening.pipeline?.new > 0).sort((a, b) => b.pipeline.new - a.pipeline.new)
+  const go = id => navigate(`/hr/openings/${id}`)
 
   return <div className="hr-page">
     <PageHeader eyebrow={today} title={greeting()}>
@@ -39,10 +42,10 @@ export default function HrOverview() {
     </PageHeader>
 
     <section className="hr-figures" aria-label="Summary">
-      <div><span>Open roles</span><b>{openings ? openings.length : '–'}</b></div>
+      <div><span>Open roles</span><b>{openings ? open.length : '–'}</b>{openings && openings.length > open.length && <small>{openings.length - open.length} closed</small>}</div>
       <div><span>Resumes evaluated</span><b>{openings ? resumes : '–'}</b></div>
-      <div><span>Strong matches</span><b>{openings ? strong : '–'}</b><small>score 75 or more</small></div>
-      <div><span>Openings left</span><b>{left}</b><small>{account.plan === 'pro' ? 'Hiring Pro' : 'on the free plan'}</small></div>
+      <div><span>Awaiting review</span><b>{openings ? awaiting : '–'}</b><small>in open roles</small></div>
+      <div><span>Shortlisted</span><b>{openings ? shortlisted : '–'}</b></div>
     </section>
 
     {error && <p className="hr-alert hr-alert--error" role="alert">{error}</p>}
@@ -57,20 +60,33 @@ export default function HrOverview() {
         </ol>
         <button className="hr-btn hr-btn--primary" type="button" onClick={start}><Icon name="plus" />Describe a job</button>
       </section>
-        : <section className="hr-panel">
-          <div className="hr-panel-head"><h2>Job openings</h2><Link to="/hr/openings">View all</Link></div>
-          <div className="hr-table-wrap"><table className="hr-table">
-            <thead><tr><th>Role</th><th>Resumes</th><th>Best match</th><th>Strong</th><th>Created</th></tr></thead>
-            <tbody>
-              {openings.map(opening => <tr key={opening.id} className="hr-row-link" tabIndex={0} onClick={() => navigate(`/hr/openings/${opening.id}`)} onKeyDown={event => { if (event.key === 'Enter') navigate(`/hr/openings/${opening.id}`) }}>
-                <td><b>{opening.title}</b><span className="hr-sub">{[opening.employmentType, opening.location].filter(Boolean).join(' · ')}</span></td>
-                <td className="hr-num">{opening.candidateCount}</td>
-                <td>{opening.bestScore === null ? <span className="hr-muted">No resumes yet</span> : <span className="hr-best"><ScoreMark score={opening.bestScore} size="sm" /><span className="hr-sub">{opening.bestCandidate}</span></span>}</td>
-                <td className="hr-num">{opening.strongCount}</td>
-                <td className="hr-muted">{formatDate(opening.createdAt)}</td>
-              </tr>)}
-            </tbody>
-          </table></div>
-        </section>}
+        : <>
+          {attention.length > 0 && <section className="hr-panel hr-attention" aria-label="Needs attention">
+            <div className="hr-panel-head"><h2>Needs attention</h2><span className="hr-muted">Resumes nobody has shortlisted or rejected yet</span></div>
+            <ul>
+              {attention.map(opening => <li key={opening.id}>
+                <span className="hr-attention-count">{opening.pipeline.new}</span>
+                <span className="hr-attention-text"><b>{opening.title}</b><span className="hr-sub">{opening.pipeline.new === 1 ? 'resume' : 'resumes'} awaiting review{opening.bestScore !== null ? ` · best match ${opening.bestScore}` : ''}</span></span>
+                <button className="hr-btn hr-btn--ghost" type="button" onClick={() => go(opening.id)}>Review</button>
+              </li>)}
+            </ul>
+          </section>}
+
+          <section className="hr-panel">
+            <div className="hr-panel-head"><h2>Job openings</h2><Link to="/hr/openings">View all</Link></div>
+            <div className="hr-table-wrap"><table className="hr-table">
+              <thead><tr><th>Role</th><th>Resumes</th><th>Best match</th><th>Review progress</th><th>Created</th></tr></thead>
+              <tbody>
+                {openings.map(opening => <tr key={opening.id} className={`hr-row-link${opening.status === 'closed' ? ' is-closed' : ''}`} tabIndex={0} onClick={() => go(opening.id)} onKeyDown={event => { if (event.key === 'Enter') go(opening.id) }}>
+                  <td><b>{opening.title}</b>{opening.status === 'closed' && <span className="hr-status hr-status--closed">Closed</span>}<span className="hr-sub">{[opening.employmentType, opening.location].filter(Boolean).join(' · ')}</span></td>
+                  <td className="hr-num">{opening.candidateCount}</td>
+                  <td>{opening.bestScore === null ? <span className="hr-muted">No resumes yet</span> : <span className="hr-best"><ScoreMark score={opening.bestScore} size="sm" /><span className="hr-sub">{opening.bestCandidate}</span></span>}</td>
+                  <td><Pipeline pipeline={opening.pipeline} /></td>
+                  <td className="hr-muted">{formatDate(opening.createdAt)}</td>
+                </tr>)}
+              </tbody>
+            </table></div>
+          </section>
+        </>}
   </div>
 }

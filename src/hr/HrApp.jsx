@@ -9,6 +9,8 @@ import HrOpenings from './HrOpenings.jsx'
 import HrOpeningForm from './HrOpeningForm.jsx'
 import HrOpening from './HrOpening.jsx'
 import HrPlan from './HrPlan.jsx'
+import HrRegister from './HrRegister.jsx'
+import HrProfile from './HrProfile.jsx'
 import './hr.css'
 
 const HrSessionContext = createContext(null)
@@ -59,6 +61,7 @@ export default function HrApp() {
   return <div className="hr-app">
     <Routes>
       <Route path="login" element={<HrLogin />} />
+      <Route path="register" element={<HrRegister />} />
       <Route element={<RequireHr />}>
         <Route element={<HrLayout />}>
           <Route index element={<HrOverview />} />
@@ -67,6 +70,7 @@ export default function HrApp() {
           <Route path="openings/:openingId" element={<HrOpening />} />
           <Route path="openings/:openingId/edit" element={<HrOpeningForm />} />
           <Route path="plan" element={<HrPlan />} />
+          <Route path="profile" element={<HrProfile />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/hr" replace />} />
