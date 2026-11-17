@@ -1,5 +1,6 @@
 // Signature panel for the Format column (PLAN-033): upload, clean-up, ink, size, alignment.
 // The picture is ink on a transparent background, so the page's paper colour shows through and always matches.
+import { safeImageSrc } from '../utils/safeUrl.js'
 
 const field = (label, children) => <div className="fp-field is-wide"><span className="fp-label">{label}</span>{children}</div>
 
@@ -17,7 +18,7 @@ export default function SignatureControls({ signature, onPick, onChange, onRemov
     {error && <p className="form-error" role="alert">{error}</p>}
     {signature?.advice && <p className="fp-warning" role="status">{signature.advice}</p>}
     {has && <>
-      <div className="letter-signature-preview" style={{ background: paper || '#fff' }}><img src={signature.image} alt="Your signature on the page colour" /></div>
+      <div className="letter-signature-preview" style={{ background: paper || '#fff' }}><img src={safeImageSrc(signature.image)} alt="Your signature on the page colour" /></div>
       {field('Clean-up', <input className="letter-range" type="range" min="0" max="100" value={Math.round((signature.cleanup ?? 0.5) * 100)} aria-label="Clean-up strength" onChange={event => onChange({ cleanup: Number(event.target.value) / 100 })} />)}
       {field('Size', <input className="letter-range" type="range" min="4" max="16" step="0.5" value={signature.width ?? 9} aria-label="Signature size" onChange={event => onChange({ width: Number(event.target.value) })} />)}
       {field('Ink', <div className="fp-swatches" role="group" aria-label="Signature ink">

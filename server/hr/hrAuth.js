@@ -3,6 +3,9 @@
 // accounts anyway, so the portal has its own small session scheme.
 import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { secretFor } from '../config/secrets.js'
+import { bearerToken } from '../services/bearer.js'
+
+export { bearerToken }
 
 export const HR_SESSION_MS = 12 * 60 * 60 * 1000
 /** How long a demo workspace lives before it (and its session) ends. */
@@ -34,7 +37,6 @@ export const DEMO_PROFILE = Object.freeze({
 
 // Longer inputs are refused before hashing, so a huge password can't tie up the CPU.
 const MAX_PASSWORD_LENGTH = 256
-const MAX_AUTH_HEADER_LENGTH = 4096
 
 const normaliseEmail = value => String(value ?? '').trim().toLowerCase()
 const emailKey = value => createHash('sha256').update(normaliseEmail(value)).digest()
@@ -54,13 +56,6 @@ export function verifyPassword(password, credentials) {
   const expected = Buffer.from(credentials.hash, 'hex')
   const actual = passwordKey(given, Buffer.from(credentials.salt, 'hex'))
   return expected.length === actual.length && timingSafeEqual(expected, actual)
-}
-
-/** "Bearer <token>" → "<token>", without a regular expression (no backtracking on crafted headers). */
-export function bearerToken(header) {
-  const value = String(header ?? '')
-  if (value.length > MAX_AUTH_HEADER_LENGTH || value.slice(0, 7).toLowerCase() !== 'bearer ') return ''
-  return value.slice(7).trim()
 }
 
 /** Stable account id for an email: Firestore-safe and does not expose the address in paths. */

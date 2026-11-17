@@ -5,6 +5,7 @@ import { evidenceScore, languageTotals, skillEvidence, STRONG_EVIDENCE_PERCENT, 
 import { skillKey } from '../../../shared/skillTaxonomy.js'
 import { loadResumeFont } from '../../editor/fontRegistry.js'
 import { Icon, NavItem, Toggle, scoreColour } from '../product/ProductUI.jsx'
+import { safeLinkUrl } from '../../utils/safeUrl.js'
 
 const STATUS = {
   strong: { label: 'Strong', tone: 'found', side: 'good' },
@@ -198,7 +199,7 @@ function SkillTable({ skills, repos, focus, onFocus, scanning }) {
           {open && <tr className="ev-skill-detail"><td colSpan={5}>
             {skill.repos.length
               ? <><p>{skill.source === 'readme' ? 'Mentioned only in the README of:' : `Backed by ${skill.repos.length} ${skill.repos.length === 1 ? 'repository' : 'repositories'}:`}</p>
-                <div className="tw-chips">{skill.repos.map(name => { const repo = repos.find(item => item.name === name); return <a key={name} className="tw-chip ev-repo-chip" href={repo?.url} target="_blank" rel="noreferrer"><Icon name="repo" size={13} />{name}</a> })}</div></>
+                <div className="tw-chips">{skill.repos.map(name => { const repo = repos.find(item => item.name === name); return <a key={name} className="tw-chip ev-repo-chip" href={safeLinkUrl(repo?.url)} target="_blank" rel="noreferrer"><Icon name="repo" size={13} />{name}</a> })}</div></>
               : <p>{scanning ? 'Not seen yet. The scan is still running.' : 'No code, dependency file or README in your recent repositories uses this skill.'}</p>}
             {(skill.status === 'weak' || skill.status === 'mentioned' || skill.status === 'none') && !scanning && <p className="ev-advice">{skill.status === 'none' ? 'If you use it, push a project that shows it; otherwise consider removing it from your resume.' : 'Push a project that uses it more, or keep it lower on your skills list.'}</p>}
           </td></tr>}
@@ -241,7 +242,7 @@ function RepoList({ repos, skills, colours, language, onClearLanguage, scanning,
       const backed = backedBy(repo.name)
       return <li key={repo.fullName ?? repo.name}>
         <div className="ev-repo-head">
-          <a href={repo.url} target="_blank" rel="noreferrer">{repo.name}</a>
+          <a href={safeLinkUrl(repo.url)} target="_blank" rel="noreferrer">{repo.name}</a>
           {repo.private && <span className="ev-badge">Private</span>}
           {repo.fork && <span className="ev-badge">Fork</span>}
           {repo.archived && <span className="ev-badge">Archived</span>}

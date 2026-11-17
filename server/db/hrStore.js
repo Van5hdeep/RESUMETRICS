@@ -182,7 +182,7 @@ export function createHrStore({ getDb = getConnectionStore, timestamp = () => Fi
    * Replaces the stored password after `check(currentCredentials)` approves, and ends every other session.
    * Returns the new session version. Accounts without a stored password (environment logins, demos) are refused.
    */
-  async function changePassword(hrId, check, credentials) {
+  async function replaceCredentials(hrId, check, credentials) {
     const ref = accountRef(hrId)
     return getDb().runTransaction(async transaction => {
       const snapshot = await transaction.get(ref)
@@ -428,7 +428,7 @@ export function createHrStore({ getDb = getConnectionStore, timestamp = () => Fi
 
   const deleteCandidate = (hrId, openingId, candidateId) => deleteCandidates(hrId, openingId, [candidateId])
 
-  return { getSessionState, bumpSessionVersion, changePassword, createDemoAccount, deleteAccount, sweepExpiredDemos, ensureAccount, getAccount, getCredentials, registerAccount, updateDetails, listOpenings, getOpening, createOpening, updateOpening, updateOpeningSettings, deleteOpening, listCandidates, getCandidate, findDuplicate, addCandidate, decide, deleteCandidates, deleteCandidate }
+  return { getSessionState, bumpSessionVersion, replaceCredentials, createDemoAccount, deleteAccount, sweepExpiredDemos, ensureAccount, getAccount, getCredentials, registerAccount, updateDetails, listOpenings, getOpening, createOpening, updateOpening, updateOpeningSettings, deleteOpening, listCandidates, getCandidate, findDuplicate, addCandidate, decide, deleteCandidates, deleteCandidate }
 }
 
 export const hrStore = createHrStore()
