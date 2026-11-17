@@ -17,8 +17,12 @@ const store = createHrStore({ getDb: () => db, timestamp: db.timestamp, now: () 
 // The AI reader is replaced: the "document" text decides what comes back.
 const resumes = {
   asha: { fullName: 'Asha Rao', headline: 'Frontend Developer', summary: 'React developer.', skills: { technical: ['React', 'JavaScript', 'CSS'] }, experience: [{ role: 'Frontend Developer', company: 'Acme', startDate: 'Jan 2021', endDate: 'Present', bullets: ['Built React components'] }], education: [] },
-  ben: { fullName: 'Ben Ito', headline: 'Accountant', skills: { technical: ['Excel'] }, experience: [], education: [] }
+  ben: { fullName: 'Ben Ito', headline: 'Accountant', skills: { technical: ['Excel'] }, experience: [], education: [] },
+  // Same person as Asha (same email), different file text: a duplicate found only after reading.
+  'asha again': { fullName: 'Asha R.', email: 'asha@example.com', skills: { technical: ['React'] }, experience: [], education: [] },
+  cara: { fullName: '=Cara "CJ" Jones', email: 'cara@example.com', headline: 'UI developer', skills: { technical: ['JavaScript', 'CSS'] }, experience: [], education: [] }
 }
+resumes.asha.email = 'asha@example.com'
 let busy = false
 const read = async source => {
   if (busy) throw new AIBusyError(20, 'tokens')
@@ -86,7 +90,7 @@ try {
 
   // A busy AI is reported with a wait, and nothing is stored.
   busy = true
-  const waiting = await upload(token, openingId, 'asha')
+  const waiting = await upload(token, openingId, 'cara')
   busy = false
   assert.equal(waiting.status, 429)
   assert.equal(waiting.body.code, 'ai_busy')
@@ -97,6 +101,74 @@ try {
   assert.deepEqual(detail.body.candidates.map(row => row.name), ['Asha Rao', 'Ben Ito'])
   assert.equal(detail.body.opening.candidateCount, 2)
   assert.ok(detail.body.weights.skills > detail.body.weights.experience)
+  assert.deepEqual(detail.body.candidates.map(row => row.status), ['new', 'new'])
+  assert.deepEqual(detail.body.candidates.map(row => row.serial), [1, 2])
+  assert.match(detail.body.candidates[0].why, /^Meets all 3 must-haves/)
+
+  // Duplicates: the same file is refused before reading; the same email is refused after reading.
+  const sameFile = await upload(token, openingId, 'asha')
+  assert.equal(sameFile.status, 409)
+  assert.equal(sameFile.body.code, 'duplicate')
+  assert.match(sameFile.body.error, /Asha Rao/)
+  const sameEmail = await upload(token, openingId, 'asha again')
+  assert.equal(sameEmail.status, 409)
+  assert.equal(sameEmail.body.code, 'duplicate')
+
+  // Decisions: shortlist, reject with a reason, back to new. A reason is kept only with a rejection.
+  const cara = await upload(token, openingId, 'cara')
+  assert.equal(cara.body.candidate.serial, 3)
+  const ashaId = asha.body.candidate.id
+  const decided = await call('PATCH', `/openings/${openingId}/candidates/${ashaId}`, { token, body: { status: 'shortlisted', reason: 'ignored' } })
+  assert.equal(decided.body.candidate.status, 'shortlisted')
+  assert.equal(decided.body.candidate.reason, '')
+  const rejected = await call('PATCH', `/openings/${openingId}/candidates/${ben.body.candidate.id}`, { token, body: { status: 'rejected', reason: 'No frontend experience' } })
+  assert.equal(rejected.body.candidate.reason, 'No frontend experience')
+  assert.equal((await call('PATCH', `/openings/${openingId}/candidates/${ashaId}`, { token, body: { status: 'maybe' } })).status, 400)
+
+  // Bulk: shortlist two, then reset one; unknown actions and empty selections are refused.
+  const bulk = await call('POST', `/openings/${openingId}/candidates/bulk`, { token, body: { ids: [ben.body.candidate.id, cara.body.candidate.id], action: 'shortlist' } })
+  assert.equal(bulk.body.changed, 2)
+  await call('POST', `/openings/${openingId}/candidates/bulk`, { token, body: { ids: [ben.body.candidate.id], action: 'reset' } })
+  assert.equal((await call('POST', `/openings/${openingId}/candidates/bulk`, { token, body: { ids: [], action: 'shortlist' } })).status, 400)
+  assert.equal((await call('POST', `/openings/${openingId}/candidates/bulk`, { token, body: { ids: [ashaId], action: 'promote' } })).status, 400)
+  const statuses = Object.fromEntries((await call('GET', `/openings/${openingId}`, { token })).body.candidates.map(row => [row.name, row.status]))
+  assert.deepEqual(statuses, { 'Asha Rao': 'shortlisted', 'Ben Ito': 'new', '=Cara "CJ" Jones': 'shortlisted' })
+
+  // The list carries the decision pipeline.
+  assert.deepEqual((await call('GET', '/openings', { token })).body.openings[0].pipeline, { new: 1, shortlisted: 2, rejected: 0 })
+
+  // Export: shortlisted only, best first, quoted, and safe to open in a spreadsheet.
+  const exportResponse = await fetch(`http://127.0.0.1:${server.address().port}/api/hr/openings/${openingId}/export.csv`, { headers: { Authorization: `Bearer ${token}` } })
+  assert.equal(exportResponse.status, 200)
+  assert.match(exportResponse.headers.get('content-disposition'), /frontend-developer-shortlist\.csv/)
+  const csv = (await exportResponse.text()).replace(/^﻿/, '').trim().split('\r\n')
+  assert.equal(csv.length, 3)
+  assert.match(csv[0], /^Rank,Name,Email,Phone,Headline,Overall score,Skills,Experience,Keywords,Must-haves met/)
+  assert.match(csv[1], /^1,Asha Rao,asha@example.com/)
+  assert.match(csv[2], /^2,"'=Cara ""CJ"" Jones",cara@example.com/)
+
+  // Settings: custom weights re-rank (keywords only), blind mode hides the best name in the list, bad weights refused.
+  const weighted = await call('PATCH', `/openings/${openingId}/settings`, { token, body: { weights: { skills: 0, experience: 0, education: 0, keywords: 100 } } })
+  assert.deepEqual(weighted.body.weights, { skills: 0, experience: 0, keywords: 100 })
+  assert.equal((await call('PATCH', `/openings/${openingId}/settings`, { token, body: { weights: { skills: 0, experience: 0, education: 0, keywords: 0 } } })).status, 400)
+  assert.equal((await call('PATCH', `/openings/${openingId}/settings`, { token, body: { weights: { skills: 500 } } })).status, 400)
+  assert.equal((await call('PATCH', `/openings/${openingId}/settings`, { token, body: {} })).status, 400)
+  await call('PATCH', `/openings/${openingId}/settings`, { token, body: { weights: null } })
+  await call('PATCH', `/openings/${openingId}/candidates/${ashaId}`, { token, body: { status: 'new' } })
+  await call('PATCH', `/openings/${openingId}/settings`, { token, body: { blind: true } })
+  assert.equal((await call('GET', '/openings', { token })).body.openings[0].bestCandidate, 'Candidate 1')
+  await call('PATCH', `/openings/${openingId}/settings`, { token, body: { blind: false } })
+
+  // Closed openings are read-only until reopened: no uploads, decisions, removals or job edits.
+  assert.equal((await call('PATCH', `/openings/${openingId}/settings`, { token, body: { status: 'closed' } })).body.opening.status, 'closed')
+  assert.equal((await upload(token, openingId, 'new person')).body.code, 'closed')
+  assert.equal((await call('PATCH', `/openings/${openingId}/candidates/${ashaId}`, { token, body: { status: 'shortlisted' } })).body.code, 'closed')
+  assert.equal((await call('DELETE', `/openings/${openingId}/candidates/${cara.body.candidate.id}`, { token })).body.code, 'closed')
+  assert.equal((await call('PUT', `/openings/${openingId}`, { token, body: job() })).body.code, 'closed')
+  assert.equal((await call('PATCH', `/openings/${openingId}/settings`, { token, body: { status: 'reopen' } })).status, 400)
+  assert.equal((await call('PATCH', `/openings/${openingId}/settings`, { token, body: { status: 'open' } })).body.opening.status, 'open')
+  assert.equal((await call('POST', `/openings/${openingId}/candidates/bulk`, { token, body: { ids: [cara.body.candidate.id], action: 'remove' } })).body.removed, 1)
+  assert.equal((await call('GET', `/openings/${openingId}`, { token })).body.opening.candidateCount, 2)
 
   // Editing the job re-ranks immediately (scores are computed on read).
   await call('PUT', `/openings/${openingId}`, { token, body: job({ mustHave: ['Excel'] }) })
@@ -138,6 +210,40 @@ try {
   assert.equal((await call('GET', `/openings/${mine}`, { token: other })).status, 404)
   assert.equal((await quietly(() => call('GET', '/openings/../../x', { token }))).status, 404)
 
+  // Registration: per-field errors, configured logins can't be re-registered, passwords are stored hashed only.
+  const signup = (overrides = {}) => ({ fullName: 'Meera Iyer', email: 'meera@talentco.in', phone: '+91 98200 11111', jobTitle: 'HR Manager', password: 'hire2026ok', confirmPassword: 'hire2026ok', companyName: 'TalentCo Pvt. Ltd.', website: 'talentco.in', industry: 'Staffing & Recruitment', companySize: '51–200', city: 'Mumbai', country: 'India', registrationType: 'gstin', registrationNumber: '27aaacr0000a1z5', agree: true, ...overrides })
+  const bad = await call('POST', '/auth/register', { body: signup({ fullName: '', password: 'short', confirmPassword: 'other', registrationNumber: '12345', agree: false, industry: 'Mining' }) })
+  assert.equal(bad.status, 400)
+  assert.deepEqual(Object.keys(bad.body.fields).sort(), ['agree', 'confirmPassword', 'fullName', 'industry', 'password', 'registrationNumber'])
+  assert.equal((await call('POST', '/auth/register', { body: signup({ email: 'abc@gmail.com' }) })).status, 409)
+  const meera = await call('POST', '/auth/register', { body: signup() })
+  assert.equal(meera.status, 201)
+  assert.ok(meera.body.token)
+  assert.equal(meera.body.account.details.fullName, 'Meera Iyer')
+  assert.equal(meera.body.account.details.registrationNumber, '27AAACR0000A1Z5')
+  assert.equal(meera.body.account.details.website, 'https://talentco.in')
+  assert.equal(meera.body.account.verification.status, 'pending')
+  assert.equal(JSON.stringify(meera.body).includes('hire2026ok'), false)
+  const stored = db.read(`hrAccounts/${hrIdFor('meera@talentco.in')}`)
+  assert.equal(stored.credentials.algorithm, 'scrypt')
+  assert.equal(JSON.stringify(stored).includes('hire2026ok'), false)
+  assert.equal((await call('POST', '/auth/register', { body: signup() })).body.code, 'exists')
+  assert.equal((await call('POST', '/auth/login', { body: { email: 'Meera@TalentCo.in', password: 'hire2026ok' } })).status, 200)
+  assert.equal((await call('POST', '/auth/login', { body: { email: 'meera@talentco.in', password: 'wrong-pass1' } })).status, 401)
+
+  // Profile edits keep the email and verification; a malformed CIN is refused per field.
+  const edited = await call('PUT', '/account/details', { token: meera.body.token, body: { ...signup({ companyName: 'TalentCo India', email: 'someone@else.com' }) } })
+  assert.equal(edited.body.account.details.companyName, 'TalentCo India')
+  assert.equal(edited.body.account.email, 'meera@talentco.in')
+  assert.equal(edited.body.account.details.verification, 'pending')
+  const badCin = await call('PUT', '/account/details', { token: meera.body.token, body: signup({ registrationType: 'cin', registrationNumber: 'U123' }) })
+  assert.equal(badCin.status, 400)
+  assert.match(badCin.body.fields.registrationNumber, /21 characters/)
+
+  // Signing up with an email that was granted a plan earlier keeps that plan.
+  db.seed(`hrAccounts/${hrIdFor('lead@corp.example')}`, { email: 'lead@corp.example', plan: { tier: 'pro', status: 'active', term: 'lifetime' }, openingsCreated: 0 })
+  assert.equal((await call('POST', '/auth/register', { body: signup({ email: 'lead@corp.example' }) })).body.account.plan, 'pro')
+
   // Sessions expire.
   clock += HR_SESSION_MS + 1
   assert.equal((await call('GET', '/openings', { token })).status, 401)
@@ -159,6 +265,8 @@ try {
 
   // Without environment settings the demo account is used.
   assert.deepEqual(configuredHrAccounts({}).map(account => account.email), ['abc@gmail.com'])
+  assert.equal(configuredHrAccounts({})[0].profile.fullName, 'Vanshdeep Mishra')
+  assert.equal(configuredHrAccounts({})[0].profile.verification, 'verified')
   assert.deepEqual(configuredHrAccounts({ RESUMETRICS_HR_EMAIL: 'HR@Corp.com', RESUMETRICS_HR_PASSWORD: 'longer-pass' }), [{ email: 'hr@corp.com', password: 'longer-pass' }])
 } finally {
   server.close()

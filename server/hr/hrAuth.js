@@ -7,7 +7,27 @@ import { resolve } from 'node:path'
 import { env } from '../config/env.js'
 
 export const HR_SESSION_MS = 12 * 60 * 60 * 1000
-const DEMO = Object.freeze({ email: 'abc@gmail.com', password: '12345' })
+
+/**
+ * The demo login and the made-up person and company it shows. Every company detail is fictional: the website uses
+ * the reserved .example domain and the CIN/GSTIN only have the right shape, they belong to no real business.
+ */
+export const DEMO_PROFILE = Object.freeze({
+  fullName: 'Vanshdeep Mishra',
+  phone: '+91 90000 12345',
+  jobTitle: 'Talent Acquisition Lead',
+  companyName: 'Resumetrics Demo Pvt. Ltd.',
+  website: 'https://demo.resumetrics.example',
+  industry: 'Information Technology',
+  companySize: '11–50',
+  city: 'Pune',
+  country: 'India',
+  registrationType: 'cin',
+  registrationNumber: 'U72900MH2024PTC000001',
+  verification: 'verified',
+  demo: true
+})
+const DEMO = Object.freeze({ email: 'abc@gmail.com', password: '12345', profile: DEMO_PROFILE })
 
 // Longer inputs are refused before hashing, so a huge password can't tie up the CPU.
 const MAX_PASSWORD_LENGTH = 256
@@ -17,6 +37,22 @@ const normaliseEmail = value => String(value ?? '').trim().toLowerCase()
 const emailKey = value => createHash('sha256').update(normaliseEmail(value)).digest()
 // Passwords use scrypt (a deliberately slow, salted key-derivation function), never a plain fast hash.
 const passwordKey = (password, salt) => scryptSync(String(password), salt, 32)
+
+/** A registered password as { salt, hash } (hex), for hrAccounts/{hrId}.credentials. The password itself is never stored. */
+export function hashPassword(password) {
+  const salt = randomBytes(16)
+  return { salt: salt.toString('hex'), hash: passwordKey(password, salt).toString('hex'), algorithm: 'scrypt' }
+}
+
+/** Constant-time check of a password against stored { salt, hash }. */
+export function verifyPassword(password, credentials) {
+  const given = String(password ?? '')
+  if (!credentials?.salt || !credentials?.hash || given.length > MAX_PASSWORD_LENGTH) return false
+  const expected = Buffer.from(credentials.hash, 'hex')
+  const actual = passwordKey(given, Buffer.from(credentials.salt, 'hex'))
+  return expected.length === actual.length && timingSafeEqual(expected, actual)
+}
+
 
 /** "Bearer <token>" → "<token>", without a regular expression (no backtracking on crafted headers). */
 export function bearerToken(header) {
@@ -60,7 +96,7 @@ export function createHrAuth({ accounts = configuredHrAccounts(), secret = defau
   // Each configured password is kept only as a salted scrypt key; the plain text is not held after this.
   const stored = accounts.map(account => {
     const salt = randomBytes(16)
-    return { email: normaliseEmail(account.email), emailKey: emailKey(account.email), salt, passwordKey: passwordKey(account.password, salt) }
+    return { email: normaliseEmail(account.email), emailKey: emailKey(account.email), salt, passwordKey: passwordKey(account.password, salt), profile: account.profile ?? null }
   })
 
   /** → { id, email } or null. Every account is checked in constant time, so timing says nothing about either field. */
@@ -74,7 +110,7 @@ export function createHrAuth({ accounts = configuredHrAccounts(), secret = defau
       const passwordOk = timingSafeEqual(account.passwordKey, passwordKey(given, account.salt))
       if (emailOk && passwordOk) match = account
     }
-    return match ? { id: hrIdFor(match.email), email: match.email } : null
+    return match ? { id: hrIdFor(match.email), email: match.email, profile: match.profile } : null
   }
 
   function issue(account) {
@@ -107,5 +143,8 @@ export function createHrAuth({ accounts = configuredHrAccounts(), secret = defau
     return next()
   }
 
-  return { checkCredentials, issue, verify, requireHr }
+  /** True for the configured logins (their password lives in the environment, not in Firestore). */
+  const isConfigured = email => stored.some(account => account.email === normaliseEmail(email))
+
+  return { checkCredentials, isConfigured, issue, verify, requireHr }
 }

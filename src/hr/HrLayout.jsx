@@ -36,6 +36,7 @@ export default function HrLayout() {
         <nav className="hr-nav" aria-label="HR portal">
           <NavLink to="/hr" end><Icon name="overview" />Overview</NavLink>
           <NavLink to="/hr/openings"><Icon name="openings" />Job openings</NavLink>
+          <NavLink to="/hr/profile"><Icon name="company" />Company profile</NavLink>
           <NavLink to="/hr/plan"><Icon name="plan" />Plan &amp; billing</NavLink>
         </nav>
         <div className="hr-sidebar-foot">
@@ -43,7 +44,7 @@ export default function HrLayout() {
             <p><b>{pro ? 'Hiring Pro' : 'Free plan'}</b>{pro ? 'Unlimited openings' : `${Math.min(used, limit)} of ${limit} openings used`}</p>
             {!pro && <span className="hr-usage-bar"><i style={{ width: `${Math.min(100, used / limit * 100)}%` }} /></span>}
           </div>
-          <p className="hr-account" title={account.email}>{account.email}</p>
+          <p className="hr-account" title={account.email}>{account.details ? <><b>{account.details.fullName}</b><span>{account.details.companyName}</span></> : account.email}</p>
           <button className="hr-signout" type="button" onClick={signOut}><Icon name="out" />Sign out</button>
         </div>
       </div>

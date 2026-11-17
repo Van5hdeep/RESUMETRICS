@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { bandOf, candidateSummary, rankCandidates, scoreCandidate, weightsFor } from '../shared/hrScoring.js'
+import { bandOf, candidatesCsv, candidateSummary, rankCandidates, scoreCandidate, validateWeights, weightsFor } from '../shared/hrScoring.js'
 import { isHrPro, openingsLeft } from '../shared/hrPlans.js'
 
 const now = new Date(2026, 10, 1)
@@ -54,6 +54,29 @@ assert.deepEqual(rows.map(row => row.id), ['a', 'b'])
 assert.equal(rows[0].name, 'Asha Rao')
 assert.equal(rows[1].missingMustHave.length, 3)
 assert.equal(candidateSummary({ id: 'c', resumeData: {}, fileName: 'blank.pdf' }, opening, { now }).name, 'blank.pdf')
+
+// Custom weights: always add to 100, education still drops out when not required, all-zero falls back to defaults.
+assert.deepEqual(weightsFor({ ...opening, weights: { skills: 1, experience: 1, education: 5, keywords: 1 } }), { skills: 34, experience: 33, keywords: 33 })
+assert.deepEqual(weightsFor({ ...opening, weights: { skills: 0, experience: 0, education: 0, keywords: 0 } }), weightsFor(opening))
+assert.throws(() => validateWeights({ skills: -1 }), /between 0 and 100/)
+assert.throws(() => validateWeights({ skills: 0, experience: 0, education: 0, keywords: 0 }), /above 0/)
+assert.equal(validateWeights(null), null)
+const skillsOnly = scoreCandidate(strong, { ...opening, weights: { skills: 100, experience: 0, education: 0, keywords: 0 } }, { now })
+assert.equal(skillsOnly.score, skillsOnly.categories.skills.score)
+
+// The why line and evidence come only from the breakdown and the resume itself.
+assert.equal(good.why, 'Meets all 3 must-haves; 4.8 years against 2+ asked; closely matching role: Frontend Developer at Acme.')
+assert.match(poor.why, /^Meets 0 of 3 must-haves \(missing React, JavaScript and 1 more\)/)
+const react = good.mustHave.items.find(item => item.term === 'React')
+assert.deepEqual(react.evidence, { where: 'Summary', text: 'Frontend developer building React dashboards and a component library in TypeScript.' })
+assert.equal(good.mustHave.items.find(item => item.term === 'CSS').evidence.where, 'Skills')
+assert.equal(poor.mustHave.items[0].evidence, null)
+
+// CSV export quotes commas and quotes, and defuses spreadsheet formulas.
+const csv = candidatesCsv([{ ...rows[0], name: '=HYPERLINK("x")', email: 'a@b.c', phone: '', reason: 'a, b', status: 'shortlisted' }], weightsFor(opening)).split('\r\n')
+assert.equal(csv.length, 2)
+assert.match(csv[1], /^1,"'=HYPERLINK\(""x""\)",a@b\.c,/)
+assert.match(csv[1], /"a, b",asha\.pdf$/)
 
 // Bands
 assert.equal(bandOf(75).id, 'strong')
