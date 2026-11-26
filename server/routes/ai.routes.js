@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { env, validateAIConfiguration } from '../config/env.js'
 import { getUsage, secondsUntilNextDay, usageDay } from '../ai/usage.js'
+import { aiAllowance } from '../ai/allowance.js'
 import { requireUser } from '../services/firebaseAdmin.js'
 
 const router = Router()
@@ -34,13 +35,15 @@ router.get('/usage', requireUser, async (request, response) => {
   const day = usageDay()
   const usage = await getUsage(request.firebaseUser.uid, day)
   const tokens = usage.tokensIn + usage.tokensOut
+  const allowance = await aiAllowance.forRequest(request)
   return response.json({
     ok: true,
     day,
     ...usage,
     tokens,
-    dailyTokenAllowance: env.usage.userDailyTokens,
-    remainingTokens: Math.max(0, env.usage.userDailyTokens - tokens),
+    tier: allowance.tier,
+    dailyTokenAllowance: allowance.dailyTokens,
+    remainingTokens: Math.max(0, allowance.dailyTokens - tokens),
     resetsInSeconds: secondsUntilNextDay()
   })
 })

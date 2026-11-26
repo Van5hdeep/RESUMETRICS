@@ -31,7 +31,8 @@ export function createIpLimiter({ perMinute }) {
 /**
  * Per signed-in user, shared by all AI routes (resume import, NIMBUS, job fixes). Mount after requireUser.
  * Keyed by Firebase uid (or `keyOf`, e.g. the HR account) rather than IP, because a whole campus can share one
- * address. In memory: resets on restart.
+ * address. In memory: resets on restart. perMinute and perDay are numbers, or functions of the request (sync or
+ * async) so the limit can depend on the user's plan (server/ai/allowance.js).
  */
 export function createUserAiLimits({ perMinute, perDay, keyOf = request => request.firebaseUser.uid }) {
   const byUser = keyOf
@@ -50,7 +51,7 @@ export function createUserAiLimits({ perMinute, perDay, keyOf = request => reque
       keyGenerator: byUser,
       standardHeaders: false,
       legacyHeaders: false,
-      handler: refuse(wait => `You’ve used today’s ${perDay} AI actions. More are available in ${wait}.`)
+      handler: (request, response) => refuse(wait => `You’ve used today’s ${request.rateLimit?.limit ?? ''} AI actions. More are available in ${wait}.`)(request, response)
     })
   ]
 }
