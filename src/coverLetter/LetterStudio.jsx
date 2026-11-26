@@ -10,6 +10,7 @@ import LetterGuide from './LetterGuide.jsx'
 import SignatureControls from './SignatureControls.jsx'
 import { importSignature, renderSignature } from './signature.js'
 import useNimbusTurns from '../nimbus/useNimbusTurns.js'
+import { greetingFor } from '../nimbus/greeting.js'
 import useEditorHistory from '../editor/useEditorHistory.js'
 import { applyResumeEditingOperations } from '../editor/resumeEditingEngine.js'
 import { describeResumeElement } from '../editor/describeResumeElement.js'
@@ -55,7 +56,7 @@ export function LetterPrintPage({ template, resumeData, letter, presentation }) 
  */
 export default function LetterStudio({
   resumeData, onResumeChange, resumeName, template, presentation, letter, onLetterChange, messages, setMessages,
-  jobText, onJobTextChange, included, onAddToResume, onRemoveFromResume, onBackToResume, onBack, onOpenTailor
+  jobText, onJobTextChange, included, onAddToResume, onRemoveFromResume, onBackToResume, onBack, onOpenTailor, userName = ''
 }) {
   const latest = useRef({ letter, resumeData })
   latest.current = { letter, resumeData }
@@ -310,7 +311,8 @@ export default function LetterStudio({
 
   const chat = <NimbusChat inputRef={inputRef} turns={messages} busy={nimbus.busy} phase={nimbus.phase} task={nimbus.task} available
     value={input} onChange={event => setInput(event.target.value)} onSend={text => { setInput(''); nimbus.run(text) }} onStop={nimbus.stop}
-    hints={LETTER_PLACEHOLDERS} suggestions={SUGGESTIONS} />
+    hints={LETTER_PLACEHOLDERS} suggestions={SUGGESTIONS} actions={nimbus}
+    greeting={greetingFor({ displayName: userName, resumeName: resumeData?.fullName })} />
   const left = <AiRail nimbus={chat} docks={<>
     <LetterGuide result={lint} busy={nimbus.busy} onFix={fix => nimbus.run(fix)} />
     <div className="rail-evidence rail-tailor">

@@ -1,0 +1,17 @@
+/*
+ * Page spacing from presentation.layout (PLAN-034, D41; values in shared/resumeLayout.js).
+ * Nothing here applies until a layout is chosen: the page then carries --rt-layout in its inline style, and
+ * section gaps, entry gaps and page margins follow the multipliers. Sizes are in em so they scale with the
+ * template's own text size. !important because several templates set these spacings inline or very specifically.
+ */
+.generated-resume[style*="--rt-layout"] .resume-section { margin-top: calc(1.4em * var(--rt-section-gap, 1)) !important; }
+.generated-resume[style*="--rt-layout"] .resume-section:first-child { margin-top: 0 !important; }
+.generated-resume[style*="--rt-layout"] .generated-resume-sidebar-layout > aside .resume-section { margin-top: 0 !important; margin-bottom: calc(1.4em * var(--rt-section-gap, 1)) !important; }
+.generated-resume[style*="--rt-layout"] .resume-section h2 { margin-bottom: calc(.45em * var(--rt-section-gap, 1)) !important; }
+.generated-resume[style*="--rt-layout"] .resume-entry,
+.generated-resume[style*="--rt-layout"] .resume-item { margin-bottom: calc(.6em * var(--rt-item-gap, 1)) !important; }
+.generated-resume[style*="--rt-layout"] .generated-resume-header { padding-bottom: calc(.8em * var(--rt-section-gap, 1)) !important; }
+/* Page margins: single-column designs only, so full-bleed sidebars and colour bands keep touching the edge. */
+.generated-resume[style*="--rt-layout"]:not(.template-reactive):not(:has(.generated-resume-sidebar-layout)) {
+  padding: calc(.36in * var(--rt-page-margin, 1) * var(--page-scale, 1)) calc(.44in * var(--rt-page-margin, 1) * var(--page-scale, 1)) !important;
+}

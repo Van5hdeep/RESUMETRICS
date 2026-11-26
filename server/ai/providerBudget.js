@@ -44,7 +44,14 @@ export function createProviderBudget({ rpm, tpm, rpd, tpd = Infinity }) {
     return (window[index - 1].at + span - now) / 1000
   }
 
+  // When the provider itself answers 429, nothing is sent to it again until its Retry-After has passed.
+  let blockedUntil = 0
+  function block(seconds, now = Date.now()) {
+    blockedUntil = Math.max(blockedUntil, now + Math.max(1, Number(seconds) || 30) * 1000)
+  }
+
   function reserve(messages, now = Date.now()) {
+    if (now < blockedUntil) throw new AIBusyError((blockedUntil - now) / 1000, 'provider')
     while (calls.length && now - calls[0].at >= DAY) calls.shift()
     if (calls.length >= rpd) throw new AIBusyError((calls[0].at + DAY - now) / 1000, 'daily')
 
@@ -69,7 +76,14 @@ export function createProviderBudget({ rpm, tpm, rpd, tpd = Infinity }) {
     if (ticket && Number.isFinite(totalTokens) && totalTokens >= 0) ticket.tokens = totalTokens
   }
 
-  return { reserve, settle }
+  return { reserve, settle, block }
 }
 
-export const providerBudget = createProviderBudget({ rpm: env.limits.providerRpm, tpm: env.limits.providerTpm, rpd: env.limits.providerRpd, tpd: env.limits.providerTpd })
+// One budget per model: Groq's free-tier limits (requests and tokens per minute and per day) apply to each model
+// separately, so a task that falls back to another model draws on that model's allowance (PLAN-034 follow-up).
+const budgets = new Map()
+export function budgetFor(model, limits = {}) {
+  const key = model || 'default'
+  if (!budgets.has(key)) budgets.set(key, createProviderBudget({ rpm: env.limits.providerRpm, tpm: env.limits.providerTpm, rpd: env.limits.providerRpd, tpd: env.limits.providerTpd, ...limits }))
+  return budgets.get(key)
+}

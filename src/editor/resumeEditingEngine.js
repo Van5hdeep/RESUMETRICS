@@ -1,5 +1,5 @@
 const validColors = value => typeof value === 'string' && (/^#[0-9a-f]{3,8}$/i.test(value) || /^rgb(a)?\(/.test(value))
-const validStyleProperties = new Set(['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'textDecoration', 'color', 'textAlign', 'lineHeight', 'letterSpacing', 'marginTop', 'marginBottom', 'paddingTop', 'paddingBottom', 'gap', 'backgroundColor', 'borderColor', 'borderWidth', 'borderRadius', 'visibility', 'width', 'height', 'objectFit', 'objectPosition', 'pageSize', 'density', 'spacing', 'alignment'])
+const validStyleProperties = new Set(['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'textDecoration', 'color', 'textAlign', 'lineHeight', 'letterSpacing', 'fontScale', 'marginTop', 'marginBottom', 'paddingTop', 'paddingBottom', 'gap', 'backgroundColor', 'borderColor', 'borderWidth', 'borderRadius', 'visibility', 'width', 'height', 'objectFit', 'objectPosition', 'pageSize', 'density', 'spacing', 'alignment'])
 
 const readPath = (target, path) => path.split('.').reduce((value, key) => value?.[key], target)
 const writePath = (target, path, value) => {

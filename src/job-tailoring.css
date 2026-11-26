@@ -160,6 +160,17 @@
 .tw-status.is-buried { color: #A3540F; background: var(--tw-orange-soft); }
 .tw-status.is-missing { color: #C2362C; background: var(--tw-red-soft); }
 
+/* Fit notice under the score: a stretch (orange) or not a good fit (red), with the reasons and what to do instead. */
+.tw-fit { margin-top: 14px; padding: 18px 20px; border: 1px solid; border-radius: 12px; }
+.tw-fit.is-stretch { border-color: #F6D3B3; background: var(--tw-orange-soft); }
+.tw-fit.is-mismatch { border-color: #F3C1BC; background: var(--tw-red-soft); }
+.tw-fit .tw-h2 { margin: 0 0 8px; color: var(--tw-ink); }
+.tw-fit.is-mismatch .tw-h2 { color: #A72A21; }
+.tw-fit ul { display: grid; gap: 4px; margin: 0 0 10px; padding-left: 18px; color: var(--tw-ink); font-size: 13.5px; line-height: 1.5; }
+.tw-fit p { margin: 0; color: var(--tw-muted); font-size: 13.5px; line-height: 1.55; }
+.tw-fit-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tw-fit-actions:empty { display: none; }
+
 /* Score hero (Screen A's relevancy panel) */
 .tw-hero { padding: 0 0 12px; border: 1px solid var(--tw-line); border-radius: 12px; background: var(--tw-lavender); }
 .tw-hero-tabs { display: flex; gap: 4px; padding: 10px 12px 0; }

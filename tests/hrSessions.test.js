@@ -10,7 +10,9 @@ import fixture from '../server/hr/demoFixture.json' with { type: 'json' }
 
 // Sessions, sign-out, password changes, private demo workspaces and the HR AI allowance.
 const db = createFakeFirestore()
-let clock = Date.UTC(2026, 10, 17, 9, 0, 0)
+// Starts at the real time: express-rate-limit compares the store's reset time with the real clock and stops
+// un-counting successful sign-ins once that time has passed, so a clock frozen in the past fails the login limits.
+let clock = Date.now()
 const auth = createHrAuth({ accounts: [{ email: 'env@corp.example', password: 'env-pass-1' }], secret: 'test-secret', now: () => clock })
 const store = createHrStore({ getDb: () => db, timestamp: db.timestamp, now: () => clock })
 const limitsDb = createFakeFirestore()

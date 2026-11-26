@@ -679,8 +679,10 @@
    content when a real resume is longer than the gallery sample. */
 .generated-resume, .generated-resume * { box-sizing: border-box; min-width: 0; }
 .generated-resume-identity { min-width: 0; }
-.generated-resume-header h1 { overflow-wrap: anywhere; text-wrap: balance; }
-.generated-resume-header h1 [data-resume-path] { font-size: var(--template-name-text-scale, 1em); }
+/* Names stay on one line in every design; ResumeHeader shrinks a long name through --name-fit. */
+.generated-resume-header h1, .generated-resume-header h1 * { white-space: nowrap; overflow-wrap: normal; word-break: normal; }
+.generated-resume-header h1 { max-width: 100%; }
+.generated-resume-header h1 [data-resume-path] { font-size: calc(var(--template-name-text-scale, 1em) * var(--name-fit, 1)); }
 .generated-contact, .generated-contact-link, .generated-contact [data-resume-path], .resume-entry, .resume-entry-title, .resume-entry-subtitle, .resume-project-description, .resume-project-links, .resume-skills { max-width: 100%; overflow-wrap: anywhere; word-break: break-word; }
 .generated-contact [data-resume-path] { font-size: var(--template-contact-text-scale, 1em); }
 .generated-contact-link { display: block; }

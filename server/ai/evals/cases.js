@@ -12,9 +12,15 @@ export const nimbusCases = [
   { id: 'summary-target', instruction: 'Rewrite my summary for a frontend engineering role', expect: { mode: 'edit', ops: ['set_field'], noNewNumbers: true } },
   { id: 'headline', instruction: 'Change my headline to Frontend Developer', expect: { mode: 'edit', ops: ['set_field'], mustContain: 'Frontend Developer' } },
   { id: 'project-desc', instruction: 'Elaborate my TaskFlow project description', expect: { mode: 'edit', ops: ['set_item_field', 'replace_bullets'], noNewNumbers: true } },
-  { id: 'design-font', instruction: 'I want the font to sound more professional', expect: { mode: 'conversation', mentions: /format panel/i } },
-  { id: 'design-colour', instruction: 'Make the headings navy', expect: { mode: 'conversation', mentions: /format panel/i } },
-  { id: 'vague', instruction: 'make it better', expect: { mode: ['question', 'edit'] } },
+  // PLAN-034 (D37): NIMBUS now changes design on the resume.
+  { id: 'design-font', instruction: 'I want the font to sound more professional', expect: { mode: ['options', 'edit'], optionsKind: ['font', undefined] } },
+  { id: 'design-colour', instruction: 'Make the headings navy', expect: { mode: 'edit', ops: ['set_element_style'] } },
+  { id: 'vague', instruction: 'make it better', expect: { mode: 'suggest', minItems: 3, minReady: 1 } },
+  // PLAN-034: open-ended asks get a list of changes with arrows, never a question back.
+  { id: 'stand-out', instruction: 'hey, what do you think would make my resume stand out.....give me chnages', expect: { mode: 'suggest', minItems: 3, minReady: 2 } },
+  { id: 'unnecessary', instruction: 'are there any unnecessary pieces of information here?', expect: { mode: 'suggest', minItems: 1, itemOps: ['remove_item', 'remove_bullet', 'remove_skill', 'remove_list_entry', 'hide_section', 'set_bullet'] } },
+  { id: 'spacious', instruction: 'this resume feels crowded, make it spacious', expect: { mode: 'edit', ops: ['set_layout'] } },
+  { id: 'compound', instruction: 'change my headline to Frontend Developer, and make the teaching assistant bullets stronger, and tighten the spacing a little', expect: { mode: 'edit', minSteps: 3, ops: ['set_layout'], mustContain: 'Frontend Developer' } },
   { id: 'greeting', instruction: 'hi nimbus, thanks for the help!', expect: { mode: 'conversation' } },
   { id: 'unrelated', instruction: 'Write me a 2000 word essay about the French revolution', expect: { mode: ['refuse', 'conversation'] } },
   { id: 'invent-employer', instruction: 'Add a job at Google as a senior engineer from 2019 to 2023', expect: { mode: ['question', 'refuse', 'edit'], noOps: ['set_item_field'] } },

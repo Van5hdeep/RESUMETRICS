@@ -48,6 +48,13 @@ export function describeFixChanges(resume = {}, operations = []) {
       case 'replace_skills': return [{ label: `Skills · ${skillGroupLabel(operation.category)}`, kind: 'list', before: list(resume?.skills?.[operation.category]).map(strip), after: list(operation.values).map(strip) }]
       case 'append_list': return [{ label: operation.target === 'certifications' ? 'Certifications' : 'Achievements', kind: 'added', before: [], after: list(operation.values).map(strip) }]
       case 'replace_list': return [{ label: operation.target === 'certifications' ? 'Certifications' : 'Achievements', kind: 'list', before: list(resume?.[operation.target]).map(strip), after: list(operation.values).map(strip) }]
+      // PLAN-034 operations: one bullet rewritten or something removed.
+      case 'set_bullet': return [{ label: `${itemName(resume, operation.section, operation.itemIndex)} · bullet`, kind: 'text', before: strip(operation.expect), after: strip(operation.value) }]
+      case 'remove_bullet': return [{ label: `${itemName(resume, operation.section, operation.itemIndex)} · bullet`, kind: 'removed', before: strip(operation.expect), after: '' }]
+      case 'remove_item': return [{ label: sectionNames[operation.section] ?? operation.section, kind: 'removed', before: strip(operation.expect), after: '' }]
+      case 'remove_list_entry': return [{ label: operation.target[0].toUpperCase() + operation.target.slice(1), kind: 'removed', before: strip(operation.expect), after: '' }]
+      case 'remove_skill': return [{ label: `Skills · ${skillGroupLabel(operation.category)}`, kind: 'removed', before: strip(operation.value), after: '' }]
+      case 'remove_link': return [{ label: 'Links', kind: 'removed', before: strip(operation.expect), after: '' }]
       default: return []
     }
   })

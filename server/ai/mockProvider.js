@@ -21,11 +21,49 @@ function forcedMode(prompt) {
   return mode ? { mode, message: `Mock NIMBUS ${mode} reply.` } : null
 }
 
+// PLAN-034 forced turns: "mock:suggest", "mock:remove", "mock:layout" and "mock:multi" exercise lists, removals, spacing and steps.
+function forcedResumeTurn(prompt, resume, itemIndex) {
+  const kind = requestOf(prompt).match(/^mock:(suggest|remove|layout|multi)\b/i)?.[1]?.toLowerCase()
+  if (!kind) return null
+  if (kind === 'layout') return { mode: 'edit', message: 'Mock NIMBUS gave the page more room.', steps: [{ title: 'Give the page more room', operations: [{ type: 'set_layout', density: 'spacious' }] }] }
+  if (itemIndex < 0) return null
+  const bullets = resume.experience[itemIndex].bullets
+  const reorder = { type: 'replace_bullets', section: 'experience', itemIndex, values: [bullets.at(-1), ...bullets.slice(0, -1)] }
+  if (kind === 'remove') return {
+    mode: 'suggest',
+    message: 'Mock NIMBUS found two things you could drop.',
+    items: [
+      { title: 'Remove your last bullet', why: 'Mock: it repeats the others.', kind: 'remove', impact: 'medium', target: 'experience', operations: [{ type: 'remove_bullet', section: 'experience', itemIndex, bulletIndex: bullets.length - 1, expect: bullets.at(-1) }] },
+      { title: 'Shorten your first bullet', why: 'Mock: keep the key part.', kind: 'trim', impact: 'low', target: 'experience', operations: [{ type: 'set_bullet', section: 'experience', itemIndex, bulletIndex: 0, expect: bullets[0], value: bullets[0].split(/\s+/).slice(0, 6).join(' ') }] }
+    ]
+  }
+  if (kind === 'multi') return {
+    mode: 'edit',
+    message: 'Mock NIMBUS did all three.',
+    steps: [
+      { title: 'Reorder your bullets', operations: [reorder] },
+      { title: 'Tighten the spacing', operations: [{ type: 'set_layout', density: 'compact' }] },
+      { title: 'Rename Experience', operations: [{ type: 'rename_section', section: 'experience', title: 'Work history' }] }
+    ]
+  }
+  return {
+    mode: 'suggest',
+    message: 'Mock NIMBUS has three changes for you.',
+    items: [
+      { title: 'Lead with your last bullet', why: 'Mock: it is the strongest.', kind: 'reorder', impact: 'high', target: 'experience', operations: [reorder] },
+      { title: 'Deepen your summary', why: 'Mock: it is short.', kind: 'rewrite', impact: 'medium', target: 'summary', instruction: 'Deepen my summary using my experience.' },
+      { title: 'Add a number to your first bullet', why: 'Mock: results need numbers.', kind: 'rewrite', impact: 'medium', target: 'experience', question: { text: 'How many people did your first bullet’s work reach?', quickReplies: ['Under 100', '100–1,000'] } }
+    ]
+  }
+}
+
 function nimbusTurn(prompt) {
   const forced = forcedMode(prompt)
   if (forced) return forced
   const resume = jsonAfter(prompt, 'RESUME')
   const itemIndex = (resume?.experience ?? []).findIndex(item => (item?.bullets ?? []).length >= 2)
+  const planned = forcedResumeTurn(prompt, resume, itemIndex)
+  if (planned) return planned
   if (itemIndex < 0) return { mode: 'question', message: 'Mock NIMBUS needs a little more to work with.', question: { text: 'Add a role with two bullets, then ask again.' } }
   const bullets = resume.experience[itemIndex].bullets
   return {
@@ -72,7 +110,7 @@ function resumeExtraction(prompt) {
 }
 
 const TASKS = [
-  [/^You are NIMBUS, the writing assistant inside the Resumetrics resume editor/, nimbusTurn],
+  [/^You are NIMBUS, the (writing )?assistant inside the Resumetrics resume editor/, nimbusTurn],
   [/^You are NIMBUS, the writing assistant inside the Resumetrics cover letter editor/, letterTurn],
   [/^You tailor a resume to one job/, jobFixes],
   [/^You read job descriptions/, jobParse],

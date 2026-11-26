@@ -99,6 +99,19 @@ export default function useJobMatch({ analysis, setAnalysis, draft, setDraft, ad
     } catch { return 0 }
   }
 
+  /**
+   * The best score honest fixes can reach: every executable fix not yet applied, applied together to a copy.
+   * Fixes that need facts the resume lacks ("ideas") are not counted. null while fixes are loading.
+   */
+  const reachableScore = (resume, keywords, fixes = analysis?.fixes, fixState = analysis?.fixState ?? {}) => {
+    if (analysis?.fixesStatus !== 'ready') return null
+    let next = resume
+    for (const fix of (fixes ?? []).filter(item => item.kind === 'executable' && fixState[item.id]?.status !== 'done')) {
+      try { next = applyNimbusOperations({ resumeData: next }, fix.operations, { elementIds: [] }).resumeData } catch { /* a fix that no longer applies adds nothing */ }
+    }
+    return scoreKeywords(next, keywords).score
+  }
+
   const executeFix = async fix => {
     const before = adapterRef.current.snapshot()
     try {
@@ -135,7 +148,7 @@ export default function useJobMatch({ analysis, setAnalysis, draft, setDraft, ad
   return {
     busy, error, file, setFile: next => { setFile(next); setError('') },
     parse, stop: () => abortRef.current?.abort(),
-    toggleKeyword, selectAll, addKeyword, scoreNow, fetchFixes, impactOf,
+    toggleKeyword, selectAll, addKeyword, scoreNow, fetchFixes, impactOf, reachableScore,
     executeFix, undoFix, skipFix, addLocalFix, editKeywords, reset
   }
 }

@@ -42,11 +42,15 @@ import { streamNdjson } from './utils/readNdjson.js'
 import { authHeaders } from './utils/authHeaders.js'
 import TailorWorkspace from './components/jd/TailorWorkspace.jsx'
 import { scoreKeywords } from '../shared/jdKeywords.js'
+import { assessJobFit } from '../shared/jobFit.js'
 import EvidenceWorkspace from './components/evidence/EvidenceWorkspace.jsx'
 import { readProfilePhoto } from './utils/readProfilePhoto.js'
 import { applyNimbusOperations } from './nimbus/applyNimbusOperations.js'
 import { MIN_READABLE_BASE_SIZE } from '../shared/nimbusPlan.js'
 import useNimbusTurns, { settleLayout } from './nimbus/useNimbusTurns.js'
+import { conversationText, stableKey, withStatus } from './nimbus/nimbusItems.js'
+import { greetingFor } from './nimbus/greeting.js'
+import { scoreResume } from '../shared/resumeLint.js'
 import ResumeMiniature from './components/ResumeMiniature.jsx'
 import ResumeGateDialog, { gateTools } from './pages/ResumeGate.jsx'
 import CoverLetterPage from './coverLetter/CoverLetterPage.jsx'
@@ -781,7 +785,7 @@ const helpArticles = [
   { topic: 'editing', question: 'How do I edit text on my resume?', answer: 'In the editor, click any text on the resume to edit it. The Format panel changes fonts, size and colours, and you can highlight words to make just those bold, italic or underlined.' },
   { topic: 'editing', question: 'Can I change the template or font later?', answer: 'Yes. Switching templates keeps all your content, so you never retype anything. There are 24 templates, single and two-column, and a catalogue of 131 fonts in the Format panel. Pick a single-column design with a plain font if the employer uses applicant tracking systems.' },
   { topic: 'editing', question: 'Can I add a profile photo?', answer: 'Yes, on templates that support a photo. Upload a JPEG image from the editor, then adjust its position and size.' },
-  { topic: 'nimbus', question: 'What can NIMBUS do?', answer: 'NIMBUS lives beside your resume in the editor. Ask it to deepen your summary, strengthen a bullet, add a section or change a detail and it edits the page in front of you. Click a bullet or section first and it works on just that part. If a request is unclear it asks a short question, and if it would need a fact you never gave, it refuses instead of inventing one. Fonts and colours are changed in the Format panel.' },
+  { topic: 'nimbus', question: 'What can NIMBUS do?', answer: 'NIMBUS lives beside your resume in the editor. Ask it anything in plain words: to deepen your summary, strengthen a bullet, remove what is unnecessary, or make a crowded page more spacious. Open-ended questions get a list of changes with an arrow in front of each; press an arrow to apply that change, hover to preview it, and undo any one of them later. It changes words, sections, fonts, colours and spacing, but never invents facts: anything it needs from you, it asks.' },
   { topic: 'nimbus', question: 'How do I add a cover letter to my resume?', steps: ['Open Cover letters from the sidebar and pick a saved resume, or press Open beside "Write a cover letter" in the editor.', 'Paste the job post under Details, then ask NIMBUS to write your letter, or type it on the page.', 'Upload a photo of your signature under Format, then press Add to resume. The letter becomes page 1 and is included when you export.'] },
   { topic: 'jobs', question: 'How do I tailor my resume to a job?', steps: ['Job tailoring is part of Pro. Open it under Career tools in the sidebar and pick a saved resume.', 'Paste the job description or attach the posting.', 'Check your match score, then press Execute on the changes you want and watch them appear on your resume beside it.'] },
   { topic: 'jobs', question: 'How does the job tracker find jobs?', steps: ['The job tracker is part of Pro. Open it under Career tools in the sidebar.', 'It searches with the role, skills and location on your latest resume. Pick another resume or change the role and city at the top.', 'Openings are shown in one row per job board (LinkedIn, Naukri, Indeed and more), ranked by how well your resume matches, with the best one marked Highest match. Apply opens the posting on that board.', 'Press the heart to save a job, then move it from Saved to Applied, Interview and Offer under My applications.'] },
@@ -1277,6 +1281,8 @@ function MainPage() {
     setFontColor(snapshot.fontColor)
     setUseGlobalTextColor(snapshot.useGlobalTextColor)
     setFooterText(snapshot.footerText)
+    // NIMBUS snapshots also carry the template (template option cards); editor history snapshots don't.
+    if (snapshot.templateId !== undefined) setSelectedTemplateId(snapshot.templateId)
   }, [])
   const history = useEditorHistory({ resumeData, resumePresentation, fontFamily, globalFontSize, fontColor, useGlobalTextColor, footerText }, restoreHistorySnapshot, isEditorPage && !nimbusPreviewing)
 
@@ -1861,12 +1867,14 @@ function MainPage() {
   // ---- NIMBUS v2: streamed turns with live steps, option cards, questions and per-turn undo ----
   const latestEditorStateRef = useRef(null)
   latestEditorStateRef.current = { resumeData, resumePresentation, fontFamily, globalFontSize, fontColor, useGlobalTextColor, footerText }
-  const snapshotEditorState = () => structuredClone({ ...latestEditorStateRef.current, resumeData: resumeDataRef.current ?? latestEditorStateRef.current.resumeData })
+  const snapshotEditorState = () => structuredClone({ ...latestEditorStateRef.current, resumeData: resumeDataRef.current ?? latestEditorStateRef.current.resumeData, templateId: selectedTemplateIdRef.current })
+  const selectedTemplateIdRef = useRef(selectedTemplateId)
+  selectedTemplateIdRef.current = selectedTemplateId
   const showAssistantError = message => setAssistantMessages(turns => [...turns, { id: `n${Date.now()}`, role: 'assistant', status: 'done', tone: 'warning', text: message }].slice(-60))
   const pageElementNodes = () => [...document.querySelectorAll('.studio-canvas .resume-page-document [data-resume-element-id]')]
   const pageElementIds = () => [...new Set(pageElementNodes().map(node => node.dataset.resumeElementId))]
 
-  const buildNimbusContext = () => {
+  const buildNimbusContext = (options = {}) => {
     const latest = latestEditorStateRef.current
     const elements = new Map()
     pageElementNodes().forEach(node => {
@@ -1890,20 +1898,31 @@ function MainPage() {
       },
       elementOverrides: latest.resumePresentation.elementOverrides ?? {},
       selection: selection ? { id: selection.id, label: describeResumeElement(selection.id).label, text: selection.text ?? '', highlighted } : null,
-      conversation: assistantMessages.filter(turn => turn.text).slice(-10).map(turn => ({ role: turn.role, text: turn.text })),
-      job: analysis?.jd ? (() => { const match = scoreKeywords(resumeDataRef.current ?? resumeData ?? {}, analysis.keywords ?? []); return { title: analysis.jd.title, score: analysis.step === 'results' ? match.score : null, mustHave: analysis.jd.mustHave, missingKeywords: match.rows.filter(row => !row.found).map(row => row.term).slice(0, 15) } })() : null
+      conversation: assistantMessages.filter(turn => turn.text || turn.items?.length).slice(-10).map(turn => ({ role: turn.role, text: conversationText(turn) })),
+      sections: latest.resumePresentation.sections ?? {},
+      layout: latest.resumePresentation.layout ?? {},
+      templateId: selectedTemplateId,
+      // The template catalogue only travels with the template tool (it costs about a thousand tokens).
+      ...(options.feature === 'template' ? { templates: resumeTemplates.map(template => ({ id: template.id, name: template.name, summary: template.summary })) } : {}),
+      job: analysis?.jd ? (() => { const match = scoreKeywords(resumeDataRef.current ?? resumeData ?? {}, analysis.keywords ?? []); return { title: analysis.jd.title, score: analysis.step === 'results' ? match.score : null, mustHave: analysis.jd.mustHave, missingKeywords: match.rows.filter(row => !row.found).map(row => row.term).slice(0, 15), ...(() => { const fit = assessJobFit({ resume: resumeDataRef.current ?? resumeData ?? {}, jd: analysis.jd, match, reachable: jobMatch.reachableScore?.(resumeDataRef.current ?? resumeData ?? {}, analysis.keywords ?? []) ?? null }); return { fit: fit.level, fitReasons: fit.reasons } })() } })() : null
     }
   }
 
   const applyNimbusOps = operations => {
     const latest = latestEditorStateRef.current
     const current = resumeDataRef.current ?? latest.resumeData
-    const result = applyNimbusOperations({ resumeData: current }, operations, { elementIds: pageElementIds(), fontFamilyForId: id => findFont(id)?.family ?? id })
+    const result = applyNimbusOperations({ resumeData: current, presentation: latest.resumePresentation }, operations, { elementIds: pageElementIds(), fontFamilyForId: id => findFont(id)?.family ?? id })
+    // Section visibility, titles, order and page spacing: keep everything else in the presentation as it is now.
+    if (result.presentationChanged) {
+      const { sections, layout } = result.presentation
+      setResumePresentation(({ sections: _s, layout: _l, ...value }) => ({ ...value, ...(sections ? { sections } : {}), ...(layout ? { layout } : {}) }))
+      latestEditorStateRef.current = { ...latestEditorStateRef.current, resumePresentation: result.presentation }
+    }
     if (result.resumeData !== current) {
       const next = ensureResumeElementIds(result.resumeData)
       resumeDataRef.current = next
       setResumeData(next)
-      latestEditorStateRef.current = { ...latest, resumeData: next }
+      latestEditorStateRef.current = { ...latestEditorStateRef.current, resumeData: next }
       if (next.fullName !== current.fullName) setResumeName(next.fullName || 'Untitled resume')
     }
     if (result.global.resetAll) resetAllFormatting()
@@ -1912,6 +1931,11 @@ function MainPage() {
     if (result.global.baseSize) { setGlobalFontSize(result.global.baseSize); setFontSize(result.global.baseSize) }
     if (result.global.textColor) { setUseGlobalTextColor(true); setFontColor(result.global.textColor) }
     if (result.global.accent) setResumePresentation(value => ({ ...value, accentColor: result.global.accent }))
+    if (result.global.templateId && resumeTemplates.some(template => template.id === result.global.templateId)) {
+      selectedTemplateIdRef.current = result.global.templateId
+      setSelectedTemplateId(result.global.templateId)
+      setResumePresentation(value => ({ ...value, template: result.global.templateId }))
+    }
     return result
   }
 
@@ -1950,9 +1974,16 @@ function MainPage() {
     turns: assistantMessages,
     setTurns: setAssistantMessages,
     available: isEditorReady && Boolean(resumeData),
-    adapter: { snapshot: snapshotEditorState, restore: restoreHistorySnapshot, applyOperations: applyNimbusOps, buildContext: buildNimbusContext, fitToOnePage: fitResumeToOnePage }
+    adapter: {
+      snapshot: snapshotEditorState, restore: restoreHistorySnapshot, applyOperations: applyNimbusOps, buildContext: buildNimbusContext, fitToOnePage: fitResumeToOnePage,
+      // Changes whenever the resume or its presentation changes, so per-item undo knows about hand edits.
+      stateKey: () => stableKey([resumeDataRef.current ?? latestEditorStateRef.current.resumeData, latestEditorStateRef.current.resumePresentation, latestEditorStateRef.current.globalFontSize, latestEditorStateRef.current.fontColor, selectedTemplateIdRef.current]),
+      pageCount
+    }
   })
   nimbusResetRef.current = nimbus.reset
+  // Free local checks and the strength score (shared/resumeLint.js): no AI, recomputed as the resume changes.
+  const resumeStrength = useMemo(() => scoreResume(resumeData ?? {}), [resumeData])
   const jobMatch = useJobMatch({
     analysis, setAnalysis, draft: description, setDraft: setDescription,
     adapter: {
@@ -2068,7 +2099,7 @@ function MainPage() {
     <LetterStudio
       resumeData={resumeData} onResumeChange={handleLetterResumeChange} resumeName={resumeName} template={selectedTemplate} presentation={editorPresentation}
       letter={coverLetter ?? createLetter()} onLetterChange={setCoverLetter} messages={letterMessages} setMessages={setLetterMessages}
-      jobText={description} onJobTextChange={setDescription}
+      jobText={description} onJobTextChange={setDescription} userName={currentUser?.displayName ?? ''}
       included={coverLetterIncluded} onAddToResume={addLetterToResume} onRemoveFromResume={removeLetterFromResume}
       onBackToResume={() => navigate('/workspace/editor')} onBack={() => navigate('/workspace/editor')} onOpenTailor={() => navigate('/workspace/tailor')} />
   </Shell>
@@ -2078,7 +2109,7 @@ function MainPage() {
       {hiddenInputs}
       <TailorWorkspace analysis={analysis} resumeData={resumeData} jobMatch={jobMatch} draft={description} onDraftChange={setDescription}
         onExecuteFix={fix => flashChanges(() => jobMatch.executeFix(fix))} onUndoFix={fix => flashChanges(() => jobMatch.undoFix(fix))} onAnswerFix={answerJdFixWithNimbus}
-        resumeCanvas={resumeCanvas} resumeName={resumeName} templateName={selectedTemplate?.name} onBack={() => navigate('/workspace/editor')} onOpenEditor={() => navigate('/workspace/editor')} onWriteLetter={openLetter} />
+        resumeCanvas={resumeCanvas} resumeName={resumeName} templateName={selectedTemplate?.name} onBack={() => navigate('/workspace/editor')} onOpenEditor={() => navigate('/workspace/editor')} onWriteLetter={openLetter} onFindJobs={() => navigate('/jobs')} />
     </div>
     {dialogs}
   </Shell>
@@ -2189,6 +2220,31 @@ function MainPage() {
   </Shell>
 
   const selectionLabel = selectedResumeElement ? describeResumeElement(selectedResumeElement.id).label : ''
+  // ---- NIMBUS guide (PLAN-034): greeting, free local checks, guided tools ----
+  const nimbusGreeting = greetingFor({ displayName: currentUser?.displayName, resumeName: resumeData?.fullName })
+  const showLocalChecks = () => {
+    const { findings, score } = resumeStrength
+    const visible = plan.pro ? findings : findings.slice(0, 3)
+    const items = withStatus(visible.map((finding, index) => ({ ...finding, id: `c${index + 1}`, locked: Boolean(finding.pro && !plan.pro) })))
+    if (!plan.pro && findings.length > visible.length) items.push({ id: 'c-more', title: `${findings.length - visible.length} more fix${findings.length - visible.length === 1 ? '' : 'es'} found`, why: 'Pro shows every fix the checks find.', kind: 'info', impact: 'low', locked: true, status: 'locked' })
+    const stamp = Date.now()
+    setAssistantMessages(turns => [...turns, { id: `u${stamp}`, role: 'user', text: 'Show quick fixes' }, {
+      id: `a${stamp + 1}`, role: 'assistant', status: 'done',
+      text: findings.length ? `Your resume scores ${score}/100. Here’s what would raise it. Fixes with an arrow apply instantly, no AI needed.` : `Your resume scores ${score}/100 and the checks found nothing to fix.`,
+      items
+    }].slice(-60))
+  }
+  const askTool = (feature, instruction, extra = {}) => nimbus.run(instruction, { feature, label: extra.label ?? instruction, ...extra })
+  const nimbusTools = [
+    { id: 'review', label: 'Review my resume', onRun: () => nimbus.run('Review my resume. What changes would make it stand out?') },
+    { id: 'trim', label: 'Anything unnecessary?', onRun: () => nimbus.run('Is there any unnecessary information on my resume?') },
+    { id: 'quantify', label: 'Add numbers', pro: true, onRun: () => askTool('quantify', 'Find bullets without numbers and ask me for each one.', { label: 'Add numbers to my bullets' }) },
+    { id: 'tone', label: 'Change tone', pro: true, options: ['Concise', 'Technical', 'Leadership', 'Academic', 'Startup'].map(tone => ({ label: tone, onRun: () => askTool('tone', `Rewrite my resume in a ${tone.toLowerCase()} tone.`, { tone }) })) },
+    { id: 'tailor', label: 'Tailor to my job', pro: true, onRun: () => analysis?.jd ? askTool('tailor', `Tailor my resume to the ${analysis.jd.title || 'job'} I analysed.`) : nimbus.notice('Analyse a job in Job tailoring first, then I can tailor your resume to it.', 'neutral') },
+    { id: 'one-page', label: 'Cut to one page', pro: true, onRun: () => askTool('one-page', 'Cut my resume down to one page.') },
+    { id: 'template', label: 'Suggest templates', pro: true, onRun: () => askTool('template', 'Which templates would suit my resume?') },
+    { id: 'letter', label: 'Cover letter from this', onRun: openLetter }
+  ]
   const assistantEditor = <NimbusChat
     inputRef={assistantInputRef}
     turns={assistantMessages}
@@ -2200,6 +2256,12 @@ function MainPage() {
     onChange={event => setAssistantInput(event.target.value)}
     onSend={text => { setAssistantInput(''); nimbus.run(text) }}
     onStop={nimbus.stop}
+    greeting={nimbusGreeting}
+    actions={nimbus}
+    pro={plan.pro}
+    onUpgrade={() => navigate('/plan')}
+    tools={nimbusTools}
+    checks={{ count: resumeStrength.findings.length, score: resumeStrength.score, onShow: showLocalChecks }}
   />
   const aiRail = <AiRail
     nimbus={assistantEditor}
@@ -2234,6 +2296,8 @@ function MainPage() {
     onPhotoUpload={() => profilePhotoInputRef.current?.click()}
     photoControls={<>{profilePhotoError && <p className="form-error" role="alert">{profilePhotoError}</p>}{photoControls}</>}
     onResetAll={resetAllFormatting}
+    layout={resumePresentation.layout}
+    onLayout={layout => setResumePresentation(({ layout: _previous, ...current }) => Object.keys(layout).length ? { ...current, layout } : current)}
   />
 
   return <Shell immersive studio>

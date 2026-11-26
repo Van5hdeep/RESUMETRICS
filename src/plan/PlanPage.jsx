@@ -6,14 +6,17 @@ import './plan.css'
 const Check = () => <svg className="plan-check" viewBox="0 0 20 20" aria-hidden="true"><path d="m5 10.5 3.2 3.2L15 6.8" /></svg>
 const Dash = () => <svg className="plan-dash" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 10h8" /></svg>
 
-const FREE_FEATURES = [`${FREE_RESUME_LIMIT} resumes`, 'Every template', 'NIMBUS AI writing and edits', 'Cover letters', 'GitHub evidence check', 'PDF, Word and text export']
-const PRO_FEATURES = ['Unlimited resumes', 'Job tailoring: match score and one-click fixes', 'Job tracker: openings from LinkedIn, Naukri, Indeed and more', 'Every opening ranked against your resume', 'Application board from saved to offer']
+const FREE_FEATURES = [`${FREE_RESUME_LIMIT} resumes`, 'Every template', 'NIMBUS: change lists, reviews, layout control', 'Cover letters', 'GitHub evidence check', 'PDF, Word and text export']
+const PRO_FEATURES = ['Unlimited resumes', 'NIMBUS Pro: apply all, add numbers, tone, smart one page, template advice', 'Job tailoring: match score and one-click fixes', 'Job tracker: openings from LinkedIn, Naukri, Indeed and more', 'Every opening ranked against your resume', 'Application board from saved to offer']
 const LIFETIME_FEATURES = ['Everything in Pro, for good', 'One payment, no renewals', 'Every Pro feature we add later']
 
 const COMPARE = [
   ['Resumes', `${FREE_RESUME_LIMIT}`, 'Unlimited'],
   ['Templates, formatting and export', true, true],
-  ['NIMBUS AI writing', true, true],
+  ['NIMBUS AI writing, change lists and layout control', true, true],
+  ['NIMBUS requests per day', '20', '150'],
+  ['Strength score and quick fixes', 'Top 3 fixes', 'Every fix'],
+  ['NIMBUS Pro tools (apply all, add numbers, tone, tailor, one page, templates)', false, true],
   ['Cover letters', true, true],
   ['GitHub evidence check', true, true],
   ['Job tailoring (JD match and fixes)', false, true],

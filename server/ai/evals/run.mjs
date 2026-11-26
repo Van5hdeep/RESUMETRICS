@@ -49,6 +49,11 @@ async function evalNimbus() {
     else {
       if (!asList(testCase.expect.mode).includes(turn.mode)) failures.push(`mode ${turn.mode}`)
       const ops = (turn.steps ?? []).flatMap(step => step.operations)
+      const items = turn.items ?? []
+      if (testCase.expect.minItems && items.length < testCase.expect.minItems) failures.push(`${items.length} items`)
+      if (testCase.expect.minReady && items.filter(item => item.operations?.length).length < testCase.expect.minReady) failures.push('too few ready items')
+      if (testCase.expect.itemOps && !items.some(item => (item.operations ?? []).some(op => testCase.expect.itemOps.includes(op.type)))) failures.push('no removal or trim item')
+      if (testCase.expect.minSteps && (turn.steps ?? []).length < testCase.expect.minSteps) failures.push(`${(turn.steps ?? []).length} steps`)
       if (testCase.expect.ops && turn.mode === 'edit' && !testCase.expect.ops.some(type => ops.some(op => op.type === type))) failures.push(`missing op ${testCase.expect.ops.join('|')}`)
       if (testCase.expect.target && turn.mode === 'edit' && !ops.some(op => testCase.expect.target.test(op.target ?? ''))) failures.push('wrong target')
       if (testCase.expect.optionsKind && !asList(testCase.expect.optionsKind).includes(turn.options?.kind)) failures.push(`options ${turn.options?.kind}`)

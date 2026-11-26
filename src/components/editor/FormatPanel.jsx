@@ -4,6 +4,7 @@ import { rangeHasMark } from '../../editor/inlineMarks.js'
 import { findFont } from '../../editor/fontRegistry.js'
 import { accentColours, contrastVerdict, textColours } from '../../editor/colourCatalogue.js'
 import FontPicker from './FontPicker.jsx'
+import { DENSITIES, LAYOUT_MAX, LAYOUT_MIN, mergeLayout, normalizeLayout } from '../../../shared/resumeLayout.js'
 
 const PHOTO_ID = 'resume.header.photo'
 const FALLBACK_WEIGHTS = [400, 500, 600, 700]
@@ -56,6 +57,25 @@ const toHex = value => {
 
 function Field({ label, children, wide }) {
   return <div className={`fp-field${wide ? ' is-wide' : ''}`}><span className="fp-label">{label}</span>{children}</div>
+}
+
+// Page density presets plus the three multipliers behind them, as percentages of the template's spacing.
+function PageSpacing({ layout, onLayout }) {
+  const clean = normalizeLayout(layout)
+  const values = { ...DENSITIES.standard, ...clean }
+  const density = clean.density ?? 'standard'
+  const set = change => onLayout(mergeLayout(layout, change))
+  return <>
+    <Field label="Page density" wide>
+      <div className="fp-segmented" role="group" aria-label="Page density">{[['compact', 'Compact'], ['standard', 'Standard'], ['spacious', 'Spacious']].map(([id, label]) =>
+        <button key={id} type="button" className={density === id ? 'is-active' : ''} aria-pressed={density === id} onClick={() => set({ density: id })}>{label}</button>)}</div>
+    </Field>
+    <div className="fp-row">
+      <Field label="Sections"><Stepper label="Gap between sections" value={Math.round(values.sectionGap * 100)} min={LAYOUT_MIN * 100} max={LAYOUT_MAX * 100} step={5} suffix="%" onChange={value => set({ sectionGap: value / 100 })} /></Field>
+      <Field label="Entries"><Stepper label="Gap between entries" value={Math.round(values.itemGap * 100)} min={LAYOUT_MIN * 100} max={LAYOUT_MAX * 100} step={5} suffix="%" onChange={value => set({ itemGap: value / 100 })} /></Field>
+    </div>
+    <Field label="Margins" wide><Stepper label="Page margins" value={Math.round(values.pageMargin * 100)} min={LAYOUT_MIN * 100} max={LAYOUT_MAX * 100} step={5} suffix="%" onChange={value => set({ pageMargin: value / 100 })} /></Field>
+  </>
 }
 
 function Stepper({ label, value, min, max, step = 1, suffix, onChange }) {
@@ -111,6 +131,8 @@ export default function FormatPanel({
   baseFontSize, onBaseFontSize, textColor, onTextColor,
   accentColor, onAccentColor, templateAccent,
   photo, onPhotoChange, onPhotoUpload, photoControls, onResetAll,
+  // Page spacing (presentation.layout, shared/resumeLayout.js). Left out by the cover letter.
+  layout = null, onLayout = null,
   // The cover letter reuses this panel: its own page selector, wording, extra whole-document sections and per-element panels.
   documentSelector = '.resume-page-document', scopeLabel = 'Whole resume', documentNoun = 'resume', wholeExtras = null, elementPanels = null
 }) {
@@ -225,6 +247,7 @@ export default function FormatPanel({
           <Field label="Line height"><Stepper label="Line height" value={Math.round((resumeOverride.lineHeight ?? computed?.lineHeight ?? 1.3) * 100)} min={80} max={250} step={5} suffix="%" onChange={value => onStyle('resume', { lineHeight: value / 100 })} /></Field>
           <Field label="Letters"><Stepper label="Letter spacing" value={resumeOverride.letterSpacing ?? computed?.letterSpacing ?? 0} min={-2} max={10} step={.1} suffix="px" onChange={value => onStyle('resume', { letterSpacing: value })} /></Field>
         </div>
+        {onLayout && <PageSpacing layout={layout} onLayout={onLayout} />}
       </section>
       {wholeExtras}
       <p className="fp-hint">Click text on the {documentNoun} to style just that part.</p>
