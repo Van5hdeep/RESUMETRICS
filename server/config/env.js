@@ -104,6 +104,21 @@ export const env = Object.freeze({
     userDailyTokens: positiveInt('RESUMETRICS_USER_DAILY_TOKENS', 50_000),
     timeZone: timeZoneOr('RESUMETRICS_USAGE_TIME_ZONE', 'Asia/Kolkata')
   }),
+  // AI allowance per plan (server/ai/allowance.js). Free = userAiPerMinute, userAiPerDay and userDailyTokens above;
+  // Pro (monthly or yearly) and Lifetime (which includes the developer accounts) get more, because they pay. The
+  // provider-wide limits (providerTpm, providerTpd) still cap everyone together: raise those with the AI key.
+  allowances: Object.freeze({
+    pro: Object.freeze({
+      perMinute: positiveInt('RESUMETRICS_PRO_AI_PER_MINUTE', 20),
+      perDay: positiveInt('RESUMETRICS_PRO_AI_PER_DAY', 600),
+      dailyTokens: positiveInt('RESUMETRICS_PRO_DAILY_TOKENS', 250_000)
+    }),
+    lifetime: Object.freeze({
+      perMinute: positiveInt('RESUMETRICS_LIFETIME_AI_PER_MINUTE', 30),
+      perDay: positiveInt('RESUMETRICS_LIFETIME_AI_PER_DAY', 1500),
+      dailyTokens: positiveInt('RESUMETRICS_LIFETIME_DAILY_TOKENS', 600_000)
+    })
+  }),
   // Job tracker (server/jobs). JSearch (OpenWeb Ninja) lists postings from LinkedIn, Glassdoor, Foundit and others;
   // context.dev reads the listing pages of the boards it misses (Naukri, Indeed, Internshala), with Tavily web search
   // as the fallback. A search is cached so repeats cost nothing.

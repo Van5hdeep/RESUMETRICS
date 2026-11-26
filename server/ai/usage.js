@@ -67,7 +67,7 @@ export async function recordAiCall({ tokensIn = 0, tokensOut = 0 }) {
   if (!uid) return null
   const totals = await usageStore.add(uid, usageDay(), { calls: 1, tokensIn, tokensOut })
   const used = totals.tokensIn + totals.tokensOut
-  console.log(`[ai usage] ${shortUid(uid)} today: ${totals.calls} calls, ${used.toLocaleString('en-US')} of ${env.usage.userDailyTokens.toLocaleString('en-US')} tokens`)
+  console.log(`[ai usage] ${shortUid(uid)} today: ${totals.calls} calls, ${used.toLocaleString('en-US')} tokens`)
   return totals
 }
 
@@ -79,12 +79,13 @@ export async function recordLimited(uid = currentUid()) {
 /**
  * Express middleware factory: refuses AI requests once the account has used today's token allowance.
  * keyOf(request) names whose usage row counts (the Firebase uid by default, an HR account id for the HR portal).
+ * allowance(request) is the token count for that account today: a number, or a promise of one (plan-based).
  */
 export function createDailyTokenBudget({ keyOf = request => request.firebaseUser.uid, allowance = () => env.usage.userDailyTokens } = {}) {
   return async function dailyTokenBudget(request, response, next) {
     const uid = keyOf(request)
     const today = await getUsage(uid)
-    if (today.tokensIn + today.tokensOut < allowance(request)) return next()
+    if (today.tokensIn + today.tokensOut < await allowance(request)) return next()
     await recordLimited(uid)
     const seconds = secondsUntilNextDay()
     response.set('Retry-After', String(seconds))

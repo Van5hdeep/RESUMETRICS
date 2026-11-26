@@ -13,7 +13,8 @@ import { createRequirePro } from './middleware/requirePro.js'
 import { createRequireUser, initializeFirebaseAdmin, requireUser } from './services/firebaseAdmin.js'
 import { createIpLimiter, createUserAiLimits } from './middleware/limits.js'
 import { securityHeaders } from './middleware/securityHeaders.js'
-import { createMemoryUsageStore, enforceDailyTokenBudget, setUsageStore, trackAiUsage } from './ai/usage.js'
+import { createDailyTokenBudget, createMemoryUsageStore, setUsageStore, trackAiUsage } from './ai/usage.js'
+import { aiAllowance } from './ai/allowance.js'
 import { createFirestoreUsageStore, createResilientUsageStore } from './ai/usageStore.js'
 
 // Daily AI usage lives in Firestore (users/{uid}/usage/{day}) so it survives restarts and is shared by every serverless instance.
@@ -57,7 +58,9 @@ app.set('trust proxy', env.trustProxy)
 // Order on AI routes: per-IP limit → sign-in → per-user limits and daily token allowance → JSON body (so refused
 // requests are never parsed) → usage tracking (last: body parsing can lose the async context it relies on).
 const ipLimiter = createIpLimiter({ perMinute: env.limits.ipPerMinute })
-const userAiLimits = createUserAiLimits({ perMinute: env.limits.userAiPerMinute, perDay: env.limits.userAiPerDay })
+// Free, Pro and Lifetime accounts get different AI allowances (server/ai/allowance.js).
+const userAiLimits = createUserAiLimits({ perMinute: request => aiAllowance.perMinute(request), perDay: request => aiAllowance.perDay(request) })
+const enforceDailyTokenBudget = createDailyTokenBudget({ allowance: request => aiAllowance.dailyTokens(request) })
 // Resume source pages are extracted in the browser and sent with page metadata; the route chunks long text
 // for AI processing, so only resume import needs the large body. Everything else stays small.
 const smallJson = express.json({ limit: '256kb' })
