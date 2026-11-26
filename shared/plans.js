@@ -12,7 +12,9 @@ export const COUNTED_DELETE_PERCENT = 75
 
 export const PRO_FEATURES = Object.freeze({
   jobTailoring: 'Job tailoring',
-  jobTracker: 'Job tracker'
+  jobTracker: 'Job tracker',
+  // Guided NIMBUS tools (server/routes/nimbus.routes.js PRO_FEATURES); free-form NIMBUS stays free with a daily cap.
+  nimbusPro: 'NIMBUS Pro tools'
 })
 
 /**

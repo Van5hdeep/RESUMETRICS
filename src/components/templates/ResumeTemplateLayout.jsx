@@ -4,6 +4,7 @@ import { findFont, loadFontsForPresentation, loadResumeFont } from '../../editor
 import { applySectionOrder, shapeSections } from '../../editor/sectionSettings.js'
 import { parseMarks, rangeOffsetsWithin, readMarkedText } from '../../editor/inlineMarks.js'
 import { skillGroupLabel } from '../../../shared/skillGroups.js'
+import { layoutStyle } from '../../../shared/resumeLayout.js'
 
 const valueOr = (value, fallback) => value || fallback
 const asArray = value => Array.isArray(value) ? value : []
@@ -52,6 +53,8 @@ export function overrideToStyle(override = {}) {
   if (override.textDecoration) style.textDecoration = override.textDecoration
   if (override.color) style.color = override.color
   if (Number.isFinite(override.lineHeight)) style.lineHeight = override.lineHeight
+  // One element's size relative to the template's (NIMBUS: "make my name bigger"), so it scales with the page.
+  if (Number.isFinite(override.fontScale) && override.fontScale !== 1) style.fontSize = `${override.fontScale}em`
   if (Number.isFinite(override.letterSpacing)) style.letterSpacing = `calc(${override.letterSpacing}px * var(--page-scale, 1))`
   if (override.textAlign) {
     style.textAlign = override.textAlign
@@ -108,8 +111,38 @@ export function ContactList({ items, blankPreview, inSection = false }) {
   </address>
 }
 
+// A name never wraps or breaks mid-word: when it is wider than its space, the whole name shrinks
+// (through --name-fit) until its widest line fits. Split-name designs keep their own line per part.
+function useOneLineName(ref, name) {
+  useLayoutEffect(() => {
+    const heading = ref.current
+    if (!heading) return undefined
+    let frame = 0
+    const fit = () => {
+      heading.style.setProperty('--name-fit', '1')
+      let scale = 1
+      for (let pass = 0; pass < 4; pass += 1) {
+        const room = heading.clientWidth
+        const natural = heading.scrollWidth
+        if (!room || natural <= room) break
+        scale = Math.max(.3, Math.floor(scale * room / natural * 1000) / 1000 - .002)
+        heading.style.setProperty('--name-fit', String(scale))
+      }
+    }
+    fit()
+    const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(fit) }
+    const observer = new ResizeObserver(schedule)
+    observer.observe(heading)
+    heading.addEventListener('input', schedule)
+    document.fonts?.ready.then(schedule)
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); heading.removeEventListener('input', schedule) }
+  }, [ref, name])
+}
+
 export function ResumeHeader({ resumeData, presentation = {}, blankPreview = false, onProfilePhotoClick }) {
   const { selectedId, focusSectionId, features } = useContext(ResumeStyleContext)
+  const nameRef = useRef(null)
+  useOneLineName(nameRef, `${resumeData.fullName ?? ''}|${presentation?.fontFamily ?? ''}|${presentation?.nameScale ?? ''}`)
   const contactItems = resumeData.contactItems ?? []
   const photo = presentation.photo
   const requestedPhotoSize = Math.max(Number(photo?.width) || 64, Number(photo?.height) || 64)
@@ -118,7 +151,7 @@ export function ResumeHeader({ resumeData, presentation = {}, blankPreview = fal
   const photoSize = Math.max(48, Math.min(requestedPhotoSize, 96))
   return <header className={`generated-resume-header${focusSectionId === 'personal' ? ' is-form-focus' : ''}`} data-page-header>
     {(resumeData.fullName || resumeData.headline || !blankPreview) && <div className="generated-resume-identity">
-      {(resumeData.fullName || !blankPreview) && <h1><EditableText path="fullName" elementId="resume.header.name">{features.nameSplit ? <SplitName name={valueOr(resumeData.fullName, 'YOUR NAME')} /> : valueOr(resumeData.fullName, 'YOUR NAME')}</EditableText></h1>}
+      {(resumeData.fullName || !blankPreview) && <h1 ref={nameRef}><EditableText path="fullName" elementId="resume.header.name">{features.nameSplit ? <SplitName name={valueOr(resumeData.fullName, 'YOUR NAME')} /> : valueOr(resumeData.fullName, 'YOUR NAME')}</EditableText></h1>}
       {(resumeData.headline || !blankPreview) && <p><EditableText path="headline" elementId="resume.header.headline">{valueOr(resumeData.headline, 'Professional headline')}</EditableText></p>}
     </div>}
     {!features.contactSection && <ContactList items={contactItems} blankPreview={blankPreview} />}
@@ -597,6 +630,8 @@ export default function ResumeTemplateLayout({ resumeData = {}, editorRef, varia
   const templateResume = useMemo(() => adaptResumeForTemplate(resumeData), [resumeData])
   const templateStyle = {
     ...editorStyle,
+    // Section gaps, entry gaps and page margins chosen in the format panel or by NIMBUS (src/resume-layout.css).
+    ...layoutStyle(presentation?.layout),
     ...(presentation?.accentColor ? { '--template-accent-color': presentation.accentColor } : {}),
     ...(presentation?.fontFamily ? { fontFamily: findFont(presentation.fontFamily)?.family ?? presentation.fontFamily } : {}),
     ...(Number.isFinite(presentation?.sidebarWidth) ? { '--template-sidebar-width': `${Math.max(24, Math.min(presentation.sidebarWidth, 42))}%` } : {}),

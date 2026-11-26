@@ -14,7 +14,7 @@ export const nimbusPowers = [
   ['Knows what you selected', 'Click a bullet, a section or a single line and ask. NIMBUS works on exactly that part of the page and leaves the rest of your resume untouched.'],
   ['Shows its plan', 'Bigger requests, like adding a section or rewriting for a role, are split into steps. You watch each one land on the page and can stop whenever you like.'],
   ['Asks when it is unsure', 'If a request could mean two things, NIMBUS offers choices or asks one short question instead of guessing, so you get the version you meant.'],
-  ['Words, not formatting', 'NIMBUS writes and rewrites content. Fonts, colours and spacing stay in your hands in the format panel, so your design never changes by surprise.'],
+  ['Changes you apply with one press', 'Ask what would make your resume stand out, or what could go. NIMBUS answers with a list of changes, each with an arrow: hover to preview it on the page, press to apply it, undo any one of them later.'],
   ['Also writes your letters', 'The same assistant drafts and tightens cover letters from your resume and the job post, using only what your resume says about you.']
 ]
 

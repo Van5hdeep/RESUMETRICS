@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { DEMO_USER, sampleEvidence, sampleResumes } from './sample.js'
 import { DEFAULT_SETTINGS } from '../../server/db/userStore.js'
-import nimbusRoutes from '../../server/routes/nimbus.routes.js'
+import { createNimbusRouter } from '../../server/routes/nimbus.routes.js'
 import jdRoutes from '../../server/routes/jd.routes.js'
 import { createHrRouter } from '../../server/routes/hr.routes.js'
 import { createHrAuth } from '../../server/hr/hrAuth.js'
@@ -45,7 +45,7 @@ function demoApi() {
   api.use(express.json({ limit: '2mb' }))
   api.use((request, _response, next) => { request.firebaseUser = { uid: DEMO_USER.uid, email: DEMO_USER.email, name: DEMO_USER.displayName }; next() })
 
-  api.get('/api/user/plan', (_request, response) => response.json({ ok: true, plan: { tier: 'pro', status: 'active', term: 'yearly', source: null, currentPeriodEnd: '2027-10-14T00:00:00.000Z' }, pro: true, resumes: { used: resumes.size, limit: null } }))
+  api.get('/api/user/plan', (_request, response) => response.json({ ok: true, plan: process.env.LANDING_SHOTS_PLAN === 'free' ? null : { tier: 'pro', status: 'active', term: 'yearly', source: null, currentPeriodEnd: '2027-10-14T00:00:00.000Z' }, pro: process.env.LANDING_SHOTS_PLAN !== 'free', resumes: { used: resumes.size, limit: null } }))
   api.get('/api/user/settings', (_request, response) => response.json({ ok: true, settings: { ...DEFAULT_SETTINGS, onboardingComplete: true } }))
   api.patch('/api/user/settings', (request, response) => response.json({ ok: true, settings: { ...DEFAULT_SETTINGS, ...request.body?.settings } }))
   api.get('/api/user/resumes', (_request, response) => response.json({ ok: true, resumes: [...resumes.values()] }))
@@ -86,7 +86,9 @@ function demoApi() {
   const pass = (_request, _response, next) => next()
   api.use('/api/hr', createHrRouter({ store: createHrStore({ getDb: () => hrDb, timestamp: hrDb.timestamp }), auth: createHrAuth({ accounts: [], secret: 'landing-shots' }), aiLimits: pass, aiBudget: pass, limitStore: () => undefined }))
 
-  api.use('/api/nimbus', nimbusRoutes)
+  // NIMBUS sees the demo user as Pro; LANDING_SHOTS_PLAN=free shows the free plan (locks and the daily cap).
+  const demoPlan = process.env.LANDING_SHOTS_PLAN === 'free' ? null : { tier: 'pro', status: 'active', term: 'yearly', currentPeriodEnd: '2027-10-14T00:00:00.000Z' }
+  api.use('/api/nimbus', createNimbusRouter({ users: { getPlan: async () => demoPlan } }))
   api.use('/api/jd', jdRoutes)
   return api
 }

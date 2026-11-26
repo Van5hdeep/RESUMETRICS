@@ -21,7 +21,7 @@
 }
 .generated-resume.template-latex .generated-resume-header { display: block; margin: 0; padding: 0; border: 0; background: none; color: inherit; text-align: left; }
 .generated-resume.template-latex .generated-resume-identity { display: block; }
-.generated-resume.template-latex .generated-resume-header h1 { margin: 0; color: inherit; font-size: 2em; font-weight: 700; letter-spacing: 0; line-height: 1.1; text-transform: none; text-wrap: wrap; }
+.generated-resume.template-latex .generated-resume-header h1 { margin: 0; color: inherit; font-size: 2em; font-weight: 700; letter-spacing: 0; line-height: 1.1; text-transform: none; }
 .generated-resume.template-latex .generated-resume-header p { margin: 0; color: inherit; font-size: 1em; font-weight: 400; }
 .generated-resume.template-latex .generated-contact { display: block; justify-items: initial; margin: 0; color: inherit; font-size: 1em; font-style: normal; line-height: 1.4; text-align: inherit; }
 .generated-resume.template-latex .generated-contact > * { display: block; }

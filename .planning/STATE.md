@@ -66,3 +66,14 @@
 - PLAN-033 executed: gate, letter on all 24 templates, studio with Details/Format, signature import, NIMBUS letter engine, add-to-resume as page 1, exports. D31–D36 were applied as planned (user did not veto).
 - Graft: the global CLI was upgraded to 0.21.1 (`npm i -g @nanonets/graft@latest --ignore-scripts`). `tree-sitter-kotlin` has no Windows prebuild and no Visual Studio build tools are installed, so `dist/graph/extract.js` in the global install was patched to load Kotlin lazily (backup `extract.js.orig`; re-apply after any reinstall). `graft init --no-agents --no-global` re-wired Claude Code; it also deleted `AGENTS.md`/`GEMINI.md`/other agent files, which were restored from git. `graft build` indexes 137 files. Use `graft init` without `--no-agents` if agent files should be refreshed. Graft sends anonymous usage stats unless disabled (`graft telemetry disable`).
 - Open: signed-in walkthrough (gate, add to resume, PDF/Word/TXT export); `npm run ai:eval -- --task letter`; per-template visual review of the 13 templates not viewed individually.
+
+## M2.5: NIMBUS guide (PLAN-034, 2026-11-26)
+- D37: D24 is reversed for the resume: NIMBUS changes design, sections and spacing through validated operations. The cover letter stays content-only (D36).
+- D38: Open-ended requests get a `suggest` list; each item is ready (operations, no AI on press), deferred (one focused turn on press) or a question. NIMBUS never answers an open-ended ask with a question.
+- D39: Removals of entries, sections, skills and links only happen from an arrow press (or an exact request). Whole sections are hidden (`presentation.sections.hidden`), never deleted. Limits: 40% of bullets, half of entries, never the only entry or bullet.
+- D40: Operations that change or remove existing text carry `expect`; stale items say so instead of overwriting.
+- D41: Page spacing is `presentation.layout` (density + sectionGap / itemGap / pageMargin multipliers), rendered through CSS variables, also in the format panel.
+- D42: Typing is a client effect (~480 characters a second; skipped with reduced motion or a click).
+- D43: Local checks (`shared/resumeLint.js`) are free and unlimited, feed the strength score, deterministic fixes and the prompt.
+- D44: Free: everything conversational plus the top 3 quick fixes and 20 NIMBUS turns a day. Pro: Apply all, every quick fix, guided tools (add numbers, tone, tailor, smart one page, template advice), 150 AI actions a day. Enforced on the server (`server/routes/nimbus.routes.js`).
+- D45: Per-item undo replays the list from its starting snapshot without that item; refused (Ctrl+Z instead) if the page was edited by hand since.

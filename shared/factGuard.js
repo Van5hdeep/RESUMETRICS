@@ -10,6 +10,13 @@ const normalise = value => stripMarks(value).toLowerCase().replace(/[–—]/g, 
 const NUMBER = /(?:[$€£₹]\s?)?\d[\d,]*(?:\.\d+)?\s?(?:%|\+|x|k|m|bn|b|lakh|crore|million|billion|thousand)?/gi
 const LINK = /\b(?:https?:\/\/|www\.)[^\s)]+|\b[\w.+-]+@[\w-]+\.[\w.]+/gi
 
+// "Data modeling" is not a new skill when the resume says "data model": compare word stems, not exact endings.
+const stem = word => word.length > 5 ? word.replace(/(ling|ing|ed|es|s)$/, '') : word
+const stemsIn = (skill, source) => {
+  const words = skill.toLowerCase().split(/[^a-z0-9+#]+/).filter(word => word.length > 1)
+  return words.length > 0 && words.every(word => source.includes(stem(word)))
+}
+
 const digitsOf = value => value.replace(/[^\d.]/g, '').replace(/^\.|\.$/g, '')
 
 /** Collect every text value in a resume (or any JSON) into one searchable string. */
@@ -42,7 +49,7 @@ export function findInventedFacts(proposed, source) {
   }
   const sourceSkills = new Set(knownSkillsIn(source).map(skill => skill.toLowerCase()))
   for (const skill of knownSkillsIn(text)) {
-    if (!sourceSkills.has(skill.toLowerCase()) && !source.includes(skill.toLowerCase())) invented.push({ kind: 'skill', value: skill })
+    if (!sourceSkills.has(skill.toLowerCase()) && !source.includes(skill.toLowerCase()) && !stemsIn(skill, source)) invented.push({ kind: 'skill', value: skill })
   }
   for (const link of text.match(LINK) ?? []) {
     if (!source.includes(link.toLowerCase())) invented.push({ kind: 'link', value: link })

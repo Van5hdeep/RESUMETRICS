@@ -3,6 +3,7 @@ import ScoreRing from '../charts/ScoreRing.jsx'
 import ScoreSpotlight from './ScoreSpotlight.jsx'
 import JdHighlight from './JdHighlight.jsx'
 import { scoreKeywords, TARGET_SCORE, verdictFor } from '../../../shared/jdKeywords.js'
+import { assessJobFit, fitVerdict } from '../../../shared/jobFit.js'
 import { textHasTerm } from '../../../shared/jdScoring.js'
 import { addedWords, describeFixChanges } from '../../jd/fixPreview.js'
 import { loadResumeFont } from '../../editor/fontRegistry.js'
@@ -15,7 +16,7 @@ const GROUP_NAMES = { hard: 'Hard skill', keyword: 'Requirement', soft: 'Soft sk
  * Job tailoring (PLAN-031): bar, sidebar (score + fixes), workspace (job post → keywords → report)
  * and a preview pane (side by side, job post, resume, changes). `resumeCanvas` is the live template.
  */
-export default function TailorWorkspace({ analysis, resumeData, jobMatch, draft, onDraftChange, onExecuteFix, onUndoFix, onAnswerFix, resumeCanvas, resumeName, templateName, onBack, onOpenEditor, onWriteLetter }) {
+export default function TailorWorkspace({ analysis, resumeData, jobMatch, draft, onDraftChange, onExecuteFix, onUndoFix, onAnswerFix, resumeCanvas, resumeName, templateName, onBack, onOpenEditor, onWriteLetter, onFindJobs }) {
   useEffect(() => { loadResumeFont('Figtree') }, [])
   const stage = !analysis?.jd || !Array.isArray(analysis.keywords) ? 'post' : analysis.step === 'results' ? 'report' : 'keywords'
   const [view, setView] = useState('keywords')
@@ -70,6 +71,9 @@ export default function TailorWorkspace({ analysis, resumeData, jobMatch, draft,
     return () => window.clearTimeout(timer)
   }, [allApplied]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Is this job a realistic target at all? A poor fit is said plainly instead of "aim for 85" (shared/jobFit.js).
+  const reachable = useMemo(() => stage === 'report' ? jobMatch.reachableScore?.(resumeData ?? {}, analysis.keywords) ?? null : null, [stage, resumeData, analysis?.keywords, analysis?.fixes, analysis?.fixState, analysis?.fixesStatus]) // eslint-disable-line react-hooks/exhaustive-deps
+  const fit = useMemo(() => live ? assessJobFit({ resume: resumeData ?? {}, jd: analysis.jd, match: live, reachable }) : null, [live, reachable, resumeData, analysis?.jd])
   const missing = live ? live.rows.filter(row => !row.found).length : 0
   const titleFound = stage === 'report' && hasJobTitle(resumeData, analysis.jd?.title)
 
@@ -119,7 +123,8 @@ export default function TailorWorkspace({ analysis, resumeData, jobMatch, draft,
         {stage === 'post' && <JobPost draft={draft} onDraftChange={onDraftChange} jobMatch={jobMatch} />}
         {stage === 'keywords' && <KeywordReview analysis={analysis} jobMatch={jobMatch} />}
         {stage === 'report' && <>
-          <ScoreHero score={live.score} found={live.found} total={live.total} baseline={analysis.baseline} delta={delta} runId={analysis.runId} />
+          <ScoreHero score={live.score} found={live.found} total={live.total} baseline={analysis.baseline} delta={delta} runId={analysis.runId} fit={fit} />
+          {fit?.level !== 'fit' && <FitNotice fit={fit} onFindJobs={onFindJobs} onWriteLetter={onWriteLetter} />}
           <div className="tw-tabs" role="tablist" aria-label="Report">
             {[['keywords', 'key', 'Keywords'], ['fixes', 'fix', 'Fixes'], ['title', 'title', 'Job title']].map(([id, icon, label]) => <button key={id} type="button" role="tab" id={`tw-tab-${id}`} aria-controls={`tw-panel-${id}`} aria-selected={view === id} onClick={() => setView(id)}><Icon name={icon} size={15} />{label}</button>)}
           </div>
@@ -226,8 +231,23 @@ function KeywordReview({ analysis, jobMatch }) {
   </section>
 }
 
-function ScoreHero({ score, found, total, baseline, delta, runId }) {
-  const verdict = verdictFor(score)
+// The honest context under the score: why this job is a stretch or not a fit, and what to do instead.
+function FitNotice({ fit, onFindJobs, onWriteLetter }) {
+  if (!fit || fit.level === 'fit') return null
+  const mismatch = fit.level === 'mismatch'
+  return <section className={`tw-fit is-${fit.level}`} role={mismatch ? 'alert' : 'status'} aria-labelledby="tw-fit-title">
+    <h2 id="tw-fit-title" className="tw-h2">{fit.title}</h2>
+    {fit.reasons.length > 0 && <ul>{fit.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}
+    <p>{fit.text}</p>
+    <div className="tw-fit-actions">
+      {mismatch && onFindJobs && <button type="button" className="tw-btn tw-btn-primary" onClick={onFindJobs}><Icon name="post" />Find jobs that fit my resume</button>}
+      {!mismatch && onWriteLetter && <button type="button" className="tw-btn tw-btn-secondary" onClick={onWriteLetter}><Icon name="post" />Write a cover letter</button>}
+    </div>
+  </section>
+}
+
+function ScoreHero({ score, found, total, baseline, delta, runId, fit }) {
+  const verdict = fitVerdict(fit, verdictFor(score))
   return <section className={`tw-hero is-${verdict.id}`} aria-labelledby="tw-hero-title">
     <div className="tw-hero-tabs" aria-hidden="true"><span className="is-active">Match score</span>{Number.isFinite(baseline) && baseline !== score && <span>Started at {baseline}</span>}</div>
     <div className="tw-hero-body">
@@ -237,7 +257,7 @@ function ScoreHero({ score, found, total, baseline, delta, runId }) {
       </div>
       <div className="tw-hero-text">
         <h2 id="tw-hero-title"><b>{verdict.label}.</b> {verdict.text}</h2>
-        <p>{found} of {total} keywords are on your resume. The marker shows the {TARGET_SCORE} target.</p>
+        <p>{found} of {total} keywords are on your resume.{fit?.level === 'mismatch' ? '' : ` The marker shows the ${TARGET_SCORE} target.`}{Number.isFinite(fit?.reachable) && fit.reachable > score ? ` Every fix together would reach about ${fit.reachable}.` : ''}</p>
         <div className="tw-meter" role="img" aria-label={`${score} of 100, target ${TARGET_SCORE}`}><span style={{ width: `${score}%`, background: tailorScoreColour(score) }} /><i style={{ left: `${TARGET_SCORE}%` }} /></div>
       </div>
     </div>

@@ -109,9 +109,6 @@
       }
     ]
   },
-  "footerLinksRegexes": [
-    "graft/[\\w./-]+\\.md"
-  ],
   "permissions": {
     "allow": [
       "Bash(trail:*)",

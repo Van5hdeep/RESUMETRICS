@@ -14,6 +14,17 @@ const positiveInt = (name, fallback) => {
   return Number.isInteger(value) && value > 0 ? value : fallback
 }
 
+// Groq's free chat models as of 2026-11 (the key's model list). A model that disappears is skipped at run time.
+const GROQ_FREE_CHAT_MODELS = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b']
+const geminiModel = () => process.env.RESUMETRICS_GEMINI_API_KEY?.trim() ? `gemini:${process.env.RESUMETRICS_GEMINI_MODEL?.trim() || 'gemini-flash-lite-latest'}` : null
+function fallbackModelsFrom(raw, provider, gemini) {
+  const value = raw?.trim()
+  if (value === 'none') return []
+  const models = value ? value.split(',').map(item => item.trim()).filter(Boolean) : provider === 'groq' ? [...GROQ_FREE_CHAT_MODELS] : []
+  // Gemini goes last unless the list already names it.
+  return gemini && !models.some(model => model.startsWith('gemini:')) ? [...models, gemini] : models
+}
+
 const timeZoneOr = (name, fallback) => {
   const value = process.env[name]?.trim()
   if (!value) return fallback
@@ -61,6 +72,18 @@ export const env = Object.freeze({
       jd: process.env.RESUMETRICS_AI_MODEL_JD?.trim() ?? '',
       linkedin: process.env.RESUMETRICS_AI_MODEL_LINKEDIN?.trim() ?? '',
       github: process.env.RESUMETRICS_AI_MODEL_GITHUB?.trim() ?? ''
+    }),
+    // Models tried in order when a task's own model is rate-limited or unavailable. Groq's free limits are per
+    // model, so spreading over several multiplies the capacity at no cost. Comma-separated; "none" turns it off.
+    fallbackModels: Object.freeze(fallbackModelsFrom(process.env.RESUMETRICS_AI_FALLBACK_MODELS, process.env.RESUMETRICS_AI_PROVIDER?.trim().toLowerCase() ?? 'groq', geminiModel())),
+    // Optional Google Gemini key: its model ("gemini:<id>") is the last fallback, after every Groq model.
+    gemini: Object.freeze({
+      apiKey: process.env.RESUMETRICS_GEMINI_API_KEY?.trim() ?? '',
+      model: process.env.RESUMETRICS_GEMINI_MODEL?.trim() || 'gemini-flash-lite-latest',
+      timeoutMs: positiveInt('RESUMETRICS_GEMINI_TIMEOUT_MS', 25_000),
+      // Free-tier style limits for its own budget; a 429 from Google also pauses it for the Retry-After.
+      rpm: positiveInt('RESUMETRICS_GEMINI_RPM', 15),
+      rpd: positiveInt('RESUMETRICS_GEMINI_RPD', 1000)
     })
   }),
   githubScanCap: Math.max(1, Math.min(100, Number.parseInt(process.env.RESUMETRICS_GITHUB_SCAN_CAP ?? '25', 10) || 25)),
@@ -69,6 +92,8 @@ export const env = Object.freeze({
     ipPerMinute: positiveInt('RESUMETRICS_LIMIT_IP_PER_MINUTE', 60),
     userAiPerMinute: positiveInt('RESUMETRICS_LIMIT_USER_AI_PER_MINUTE', 10),
     userAiPerDay: positiveInt('RESUMETRICS_LIMIT_USER_AI_PER_DAY', 150),
+    // NIMBUS requests a free account may make per day (PLAN-034, D44); Pro keeps the general per-day limit above.
+    nimbusFreePerDay: positiveInt('RESUMETRICS_LIMIT_NIMBUS_FREE_PER_DAY', 20),
     providerRpm: positiveInt('RESUMETRICS_AI_RPM', 30),
     providerTpm: positiveInt('RESUMETRICS_AI_TPM', 8000),
     providerRpd: positiveInt('RESUMETRICS_AI_RPD', 1000),

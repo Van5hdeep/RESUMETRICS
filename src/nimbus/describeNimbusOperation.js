@@ -1,10 +1,13 @@
 import { findFont } from '../editor/fontRegistry.js'
 import { describeResumeElement } from '../editor/describeResumeElement.js'
+import { describeLayout, mergeLayout } from '../../shared/resumeLayout.js'
 
 const groupNames = { name: 'your name', headline: 'the headline', contact: 'contact details', headings: 'section headings', summary: 'the summary', 'job-titles': 'job titles', companies: 'company names', dates: 'dates', bullets: 'bullet points', skills: 'skills', 'education-degrees': 'degrees', 'project-names': 'project names' }
 const targetName = target => String(target).startsWith('group:') ? groupNames[target.slice(6)] ?? target.slice(6) : describeResumeElement(target).label.toLowerCase()
 const letterFieldNames = { role: 'job title', date: 'date', recipientName: 'recipient name', recipientTitle: 'recipient title', company: 'company', address: 'address', subject: 'subject line', salutation: 'greeting', signoff: 'sign-off' }
 const markNames = { b: 'Bold', i: 'Italic', u: 'Underline', s: 'Strikethrough' }
+const sectionNames = { summary: 'Summary', experience: 'Experience', projects: 'Projects', education: 'Education', skills: 'Skills', certifications: 'Certifications', achievements: 'Achievements', languages: 'Languages' }
+const short = value => { const text = String(value ?? '').replace(/\[\/?[bius]\]/g, '').trim(); return text.length > 48 ? `${text.slice(0, 46)}…` : text }
 const sectionItem = (section, index) => `${section === 'experience' ? 'role' : section === 'projects' ? 'project' : 'education entry'} ${Number(index) + 1}`
 
 function describeChanges(changes) {
@@ -16,6 +19,7 @@ function describeChanges(changes) {
   if (changes.color) parts.push(`colour ${changes.color}`)
   if (changes.textAlign) parts.push(`${changes.textAlign} aligned`)
   if (changes.lineHeight) parts.push(`line height ${Math.round(changes.lineHeight * 100)}%`)
+  if (changes.fontScale) parts.push(changes.fontScale > 1 ? `${Math.round((changes.fontScale - 1) * 100)}% bigger` : `${Math.round((1 - changes.fontScale) * 100)}% smaller`)
   if (changes.letterSpacing != null) parts.push(`letter spacing ${changes.letterSpacing}px`)
   return parts.join(', ')
 }
@@ -40,6 +44,18 @@ export function describeNimbusOperation(operation) {
     case 'set_accent': return `Accent colour ${operation.hex}`
     case 'reset_style': return operation.scope === 'all' ? 'Reset all formatting' : `Reset formatting on ${targetName(operation.target)}`
     case 'fit_one_page': return 'Fit on one page'
+    case 'set_bullet': return `Rewrote a bullet in ${sectionItem(operation.section, operation.itemIndex)}`
+    case 'remove_bullet': return `Removed “${short(operation.expect)}”`
+    case 'remove_item': return `Removed ${short(operation.expect) || sectionItem(operation.section, operation.itemIndex)}`
+    case 'move_item': return `Moved ${short(operation.expect) || sectionItem(operation.section, operation.itemIndex)} to position ${Number(operation.toIndex) + 1}`
+    case 'remove_list_entry': return `Removed “${short(operation.expect)}” from ${operation.target}`
+    case 'remove_skill': return `Removed the skill ${operation.value}`
+    case 'remove_link': return 'Removed a link'
+    case 'hide_section': return `Hid the ${sectionNames[operation.section] ?? operation.section} section (your text is kept)`
+    case 'show_section': return `Showed the ${sectionNames[operation.section] ?? operation.section} section`
+    case 'rename_section': return `Renamed ${sectionNames[operation.section] ?? operation.section} to “${operation.title}”`
+    case 'reorder_sections': return `Reordered sections: ${operation.order.map(id => sectionNames[id] ?? id).join(', ')}`
+    case 'set_layout': return `Page spacing: ${describeLayout(mergeLayout({}, operation))}`
     case 'set_letter_field': return `Updated the ${letterFieldNames[operation.target] ?? operation.target}`
     case 'clear_letter_field': return `Cleared the ${letterFieldNames[operation.target] ?? operation.target}`
     case 'set_paragraph': return `Rewrote paragraph ${Number(operation.index) + 1}`

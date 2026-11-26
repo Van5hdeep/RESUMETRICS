@@ -1,6 +1,7 @@
 // Turns validated NIMBUS operations into editor changes. Pure: the caller applies the result to state.
 import { applyResumeEditPlan } from '../utils/applyResumeEditPlan.js'
 import { CONTENT_OPERATIONS } from '../../shared/nimbusPlan.js'
+import { LAYOUT_OPERATIONS, RESUME_CONTENT_OPERATIONS, SECTION_OPERATIONS, applyPresentationOperations, applyResumeOperations } from '../../shared/nimbusResumeOps.js'
 import { rangeHasMark, stripMarks, toggleMarkInRange } from '../editor/inlineMarks.js'
 
 const groupPatterns = {
@@ -35,12 +36,15 @@ const writePath = (source, path, value) => {
 }
 
 /**
- * state: { resumeData }. Returns { resumeData, presentationOps, global, fitOnePage, changed }.
+ * state: { resumeData, presentation? }. Returns { resumeData, presentation, presentationOps, global, fitOnePage, changed }.
+ * presentation carries section settings and page layout after section/layout operations (same object when untouched).
  * global may contain fontFamily, baseSize, textColor, accent, resetAll.
  * options.fontFamilyForId maps a catalogue font id to its CSS family string.
+ * Throws StaleOperationError when an operation's `expect` text is no longer on the resume.
  */
 export function applyNimbusOperations(state, operations, { elementIds = [], fontFamilyForId = id => id } = {}) {
   let resumeData = state.resumeData
+  let presentation = state.presentation ?? {}
   const presentationOps = []
   const global = {}
   let fitOnePage = false
@@ -52,6 +56,8 @@ export function applyNimbusOperations(state, operations, { elementIds = [], font
   for (const operation of operations) {
     if (CONTENT_OPERATIONS.has(operation.type)) { contentOps.push(operation); continue }
     flushContent()
+    if (RESUME_CONTENT_OPERATIONS.has(operation.type)) { resumeData = applyResumeOperations(resumeData, [operation]); continue }
+    if (SECTION_OPERATIONS.has(operation.type) || LAYOUT_OPERATIONS.has(operation.type)) { presentation = applyPresentationOperations(presentation, [operation]); continue }
     if (operation.type === 'apply_marks') {
       const value = readPath(resumeData, operation.path)
       if (typeof value !== 'string') continue
@@ -79,16 +85,21 @@ export function applyNimbusOperations(state, operations, { elementIds = [], font
       else resolveTarget(operation.target, elementIds).forEach(target => presentationOps.push({ type: 'clear_style', target }))
     } else if (operation.type === 'fit_one_page') {
       fitOnePage = true
+    } else if (operation.type === 'set_template') {
+      // Only from a template option card the server validated (never a model operation on its own).
+      global.templateId = operation.templateId
     }
   }
   flushContent()
-  return { resumeData, presentationOps, global, fitOnePage, changed: resumeData !== state.resumeData || presentationOps.length > 0 || Object.keys(global).length > 0 }
+  const presentationChanged = presentation !== (state.presentation ?? {})
+  return { resumeData, presentation, presentationChanged, presentationOps, global, fitOnePage, changed: resumeData !== state.resumeData || presentationChanged || presentationOps.length > 0 || Object.keys(global).length > 0 }
 }
 
 /** The operations that apply one of NIMBUS's option cards. */
 export function optionToOperations(options, choice) {
   const target = options.target ?? 'resume'
   const elementTarget = target.startsWith('element:') ? target.slice(8) : null
+  if (options.kind === 'template') return [{ type: 'set_template', templateId: choice.templateId }]
   if (options.kind === 'font') {
     if (target === 'resume') return [{ type: 'set_resume_style', fontId: choice.fontId }]
     return [{ type: 'set_element_style', target: elementTarget ?? (target === 'name' ? 'group:name' : 'group:headings'), changes: { fontId: choice.fontId } }]

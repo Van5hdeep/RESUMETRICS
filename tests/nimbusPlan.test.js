@@ -31,7 +31,7 @@ throwsMatching(() => validateNimbusTurn({ mode: 'edit', steps: [{ title: 'x', op
 // ...but allowed when the user states it.
 assert.ok(validateNimbusTurn({ mode: 'edit', steps: [{ title: 'x', operations: [{ type: 'append_bullets', section: 'experience', itemIndex: 0, values: ['Mentored 3 interns'] }] }] }, context('add that I mentored 3 interns')))
 // Per-element size is not allowed; light text is rejected; unknown elements are rejected.
-throwsMatching(() => validateNimbusTurn({ mode: 'edit', steps: [{ title: 'x', operations: [{ type: 'set_element_style', target: 'resume.header.name', changes: { fontSize: 30 } }] }] }, context('')), /whole-resume only/)
+throwsMatching(() => validateNimbusTurn({ mode: 'edit', steps: [{ title: 'x', operations: [{ type: 'set_element_style', target: 'resume.header.name', changes: { fontSize: 30 } }] }] }, context('')), /use fontScale/)
 throwsMatching(() => validateNimbusTurn({ mode: 'edit', steps: [{ title: 'x', operations: [{ type: 'set_resume_style', textColor: '#cccccc' }] }] }, context('')), /contrast/)
 throwsMatching(() => validateNimbusTurn({ mode: 'edit', steps: [{ title: 'x', operations: [{ type: 'set_element_style', target: 'nope', changes: { color: '#111111' } }] }] }, context('')), /not on the resume/)
 throwsMatching(() => validateNimbusTurn({ mode: 'edit', steps: [{ title: 'x', operations: [{ type: 'set_resume_style', baseSize: 8 }] }] }, context('')), /too small/)
