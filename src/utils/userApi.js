@@ -1,5 +1,6 @@
 import { getAuth } from 'firebase/auth'
 import { SaveError, saveErrorKind } from '../db/saveError.js'
+import { BRAND } from '../../shared/brand.js'
 
 export { SaveError }
 
@@ -20,7 +21,7 @@ async function authenticatedFetch(endpoint, { keepalive = false, ...options } = 
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers }
     })
   } catch (error) {
-    throw new SaveError('network', 'Couldn’t reach Resumetrics. Check your connection.', { cause: error })
+    throw new SaveError('network', `Couldn’t reach ${BRAND.name}. Check your connection.`, { cause: error })
   }
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {

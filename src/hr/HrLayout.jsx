@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useHrSession } from './HrApp.jsx'
 import BrandLogo from '../components/BrandLogo.jsx'
 import { Icon } from './hrUi.jsx'
+import { BRAND } from '../../shared/brand.js'
 
 /** Free accounts at their opening limit go to the plan page instead of the form. */
 export function useNewOpening() {
@@ -28,7 +29,7 @@ export default function HrLayout() {
   return <div className={`hr-shell${menuOpen ? ' hr-shell--menu' : ''}`}>
     <aside className="hr-sidebar">
       <div className="hr-sidebar-top">
-        <NavLink className="hr-brand" to="/hr" aria-label="Resumetrics Hiring, overview"><BrandLogo animate="once" name="hr-sidebar" dot reveal word="Hiring" /></NavLink>
+        <NavLink className="hr-brand" to="/hr" aria-label={`${BRAND.hiring}, overview`}><BrandLogo animate="once" name="hr-sidebar" dot reveal word="Hiring" /></NavLink>
         <button className="hr-menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="hr-nav" onClick={() => setMenuOpen(open => !open)}>{menuOpen ? 'Close' : 'Menu'}</button>
       </div>
       <div className="hr-sidebar-body" id="hr-nav">

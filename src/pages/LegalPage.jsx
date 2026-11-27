@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import BrandLogo from '../components/BrandLogo.jsx'
 import './simple-page.css'
+import { BRAND } from '../../shared/brand.js'
 
 // The Privacy Policy and Terms of Service. They describe what this code actually does with data (server/db/*,
 // server/routes/*, the AI and job-search providers). Update them together with any change to what is stored or shared.
@@ -19,7 +20,7 @@ function Contact() {
 function Privacy() {
   return <>
     <h2>Who we are</h2>
-    <p>Resumetrics is a resume builder for candidates and a resume-screening portal for hiring teams (“Resumetrics Hiring”). This policy explains what personal data each part handles, why, who else processes it, and the choices you have. It is written with India’s Digital Personal Data Protection Act, 2023 in mind.</p>
+    <p>{BRAND.name} is a resume workspace for job seekers and a resume organizer for hiring teams (“{BRAND.hiring}”). This policy explains what personal data each part handles, why, who else processes it, and the choices you have. It is written with India’s Digital Personal Data Protection Act, 2023 in mind.</p>
 
     <h2>What we collect from candidates</h2>
     <ul>
@@ -36,7 +37,7 @@ function Privacy() {
       <li><b>Account:</b> your name, work email, phone, job title, company details and a password, which is stored only as a salted scrypt hash.</li>
       <li><b>Job openings</b> you describe, and the <b>candidate resumes you upload</b> to them, with the scores and decisions (shortlisted, rejected, reasons) you record.</li>
     </ul>
-    <p>When you upload a candidate’s resume, you decide why and how it is processed, so you act as the data fiduciary for that candidate and Resumetrics processes it on your behalf. You confirm, when you create an account, that you are allowed to share these resumes with us for screening. Remove a resume, or delete the opening, and it is deleted from our database.</p>
+    <p>When you upload a candidate’s resume, you decide why and how it is processed, so you act as the data fiduciary for that candidate and {BRAND.name} processes it on your behalf. You confirm, when you create an account, that you are allowed to share these resumes with us for screening. Remove a resume, or delete the opening, and it is deleted from our database.</p>
     <p><b>Demo workspaces</b> contain only made-up people. A demo and anything uploaded to it is deleted after 24 hours or when you sign out of it.</p>
 
     <h2>Why we use it</h2>
@@ -77,7 +78,7 @@ function Privacy() {
 
 function Terms() {
   return <>
-    <h2>Using Resumetrics</h2>
+    <h2>Using {BRAND.name}</h2>
     <p>By creating an account or using the service you accept these terms. You must be at least 18, or have a parent’s or guardian’s permission, to use the candidate app; hiring accounts are for people who recruit for the company they register.</p>
 
     <h2>Your content</h2>
@@ -97,10 +98,10 @@ function Terms() {
     <p>Free plans have the limits shown on the plan pages. Paid plans are not on sale yet; when they are, prices, billing terms and refunds will be shown before you pay.</p>
 
     <h2>Availability and liability</h2>
-    <p>We work to keep Resumetrics available and correct, but it is provided “as is”, without a guarantee that it will be uninterrupted or that it will get you an interview or a hire. To the extent the law allows, we are not liable for indirect losses arising from its use.</p>
+    <p>We work to keep {BRAND.name} available and correct, but it is provided “as is”, without a guarantee that it will be uninterrupted or that it will get you an interview or a hire. To the extent the law allows, we are not liable for indirect losses arising from its use.</p>
 
     <h2>Ending your use</h2>
-    <p>You can stop using Resumetrics and delete your content at any time. We may suspend accounts that break these terms. To ask a question about these terms, <Contact />.</p>
+    <p>You can stop using {BRAND.name} and delete your content at any time. We may suspend accounts that break these terms. To ask a question about these terms, <Contact />.</p>
   </>
 }
 
@@ -114,7 +115,7 @@ export default function LegalPage({ kind }) {
   return <main className="simple-page">
     <article className="legal">
       <header className="legal-head">
-        <Link to="/" className="simple-page-brand" aria-label="Resumetrics home"><BrandLogo /></Link>
+        <Link to="/" className="simple-page-brand" aria-label={`${BRAND.name} home`}><BrandLogo /></Link>
         <h1>{title}</h1>
         <p className="legal-updated">Last updated {LEGAL_UPDATED}</p>
         <nav className="legal-nav" aria-label="Legal pages">

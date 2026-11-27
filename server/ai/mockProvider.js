@@ -4,6 +4,7 @@
 // Never use it in production: the answers are canned.
 import { extractResumeDataFallback } from '../services/resumeFallback.js'
 import { knownSkillsIn } from '../../shared/roleAnalysis.js'
+import { BRAND } from '../../shared/brand.js'
 
 const SKILL_CATEGORIES = ['languages', 'frameworks', 'tools', 'databases', 'softSkills', 'other']
 
@@ -110,8 +111,8 @@ function resumeExtraction(prompt) {
 }
 
 const TASKS = [
-  [/^You are NIMBUS, the (writing )?assistant inside the Resumetrics resume editor/, nimbusTurn],
-  [/^You are NIMBUS, the writing assistant inside the Resumetrics cover letter editor/, letterTurn],
+  [new RegExp(`^You are NIMBUS, the (writing )?assistant inside the ${BRAND.name} resume editor`), nimbusTurn],
+  [new RegExp(`^You are NIMBUS, the writing assistant inside the ${BRAND.name} cover letter editor`), letterTurn],
   [/^You tailor a resume to one job/, jobFixes],
   [/^You read job descriptions/, jobParse],
   [/^You are a precise resume parser/, resumeExtraction]

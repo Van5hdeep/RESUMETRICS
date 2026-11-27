@@ -69,6 +69,20 @@
 /* The one orchestrated moment: the hero rises in, line by line, and the wordmark catches the light once. */
 .lp-enter { animation: lp-enter .9s var(--lp-ease) calc(var(--i) * 110ms + 200ms) both; }
 
+/* Two sides: the resume workspace for job seekers and the resume organizer for hiring teams, given equal weight. */
+.lp-sides { padding: clamp(64px, 8vw, 108px) var(--lp-pad) clamp(40px, 5vw, 72px); }
+.lp-sides-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(16px, 2.4vw, 28px); max-width: var(--lp-max); margin: 0 auto; padding: 0; list-style: none; }
+.lp-side { display: flex; flex-direction: column; gap: 12px; padding: clamp(24px, 3vw, 38px); border-radius: 28px; background: var(--lp-card); box-shadow: inset 0 0 0 1px var(--lp-line), 0 30px 60px -44px rgba(22, 19, 49, .45); }
+.lp-side--hiring { background: linear-gradient(160deg, var(--lp-v50) 0%, #fff 60%); box-shadow: inset 0 0 0 1px var(--lp-v200), 0 30px 60px -44px rgba(var(--lp-violet-rgb), .55); }
+.lp-side-icon { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 14px; color: var(--lp-v700); background: var(--lp-v100); }
+.lp-side-kicker { color: var(--lp-v700); font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.lp-side h3 { font-size: clamp(26px, 2.6vw, 34px); font-weight: 600; letter-spacing: -.035em; line-height: 1.1; }
+.lp-side-lede { color: var(--lp-ink-2); font-family: var(--lp-serif); font-size: clamp(19px, 1.7vw, 23px); font-style: italic; line-height: 1.35; }
+.lp-side-points { display: grid; gap: 10px; margin: 6px 0 10px; padding: 0; list-style: none; }
+.lp-side-points li { position: relative; padding-left: 22px; color: var(--lp-muted); font-size: 15px; line-height: 1.5; }
+.lp-side-points li::before { content: ''; position: absolute; top: 8px; left: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--lp-violet); }
+.lp-side-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto; }
+
 /* Resume writer (pinned) */
 .lp-writer { position: relative; height: 180vh; }
 .lp-writer-stage { position: sticky; top: 0; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: center; gap: clamp(24px, 5vw, 80px); height: 100svh; max-width: var(--lp-max); margin: 0 auto; padding: 92px var(--lp-pad) 28px; }
@@ -233,7 +247,7 @@
   .lp-nimbus-powers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 860px) {
-  .lp-nimbus-top, .lp-footer-top, .lp-hiring-inner { grid-template-columns: minmax(0, 1fr); }
+  .lp-nimbus-top, .lp-footer-top, .lp-hiring-inner, .lp-sides-grid { grid-template-columns: minmax(0, 1fr); }
   .lp-writer { height: 170vh; }
   .lp-writer-stage { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); align-items: start; gap: 16px; padding-top: 84px; }
   .lp-writer-intro { display: none; }

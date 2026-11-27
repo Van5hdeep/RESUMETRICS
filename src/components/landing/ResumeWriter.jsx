@@ -3,6 +3,7 @@ import { getResumeTemplate, resolveResumePresentation } from '../../config/resum
 import { loadFontsForPresentation } from '../../editor/fontRegistry.js'
 import { landingResumeData } from '../../data/sampleResume.js'
 import useScrollProgress from './useScrollProgress.js'
+import { BRAND } from '../../../shared/brand.js'
 import { onScroll, prefersReducedMotion } from './useLenis.js'
 
 const A4 = { width: 794, height: 1123 }
@@ -17,7 +18,7 @@ const RING = 2 * Math.PI * 52
 const stages = [[0, 'Adding your details'], [0.16, 'Writing your summary'], [0.34, 'Filling in your experience'], [0.62, 'Listing projects and skills'], [0.86, 'Finishing touches']]
 
 /**
- * A real Resumetrics template (Gengar) with the sample resume, written element by element as you scroll. Each element
+ * A real template (Gengar) with the sample resume, written element by element as you scroll. Each element
  * gets its place in reading order (--i) and CSS reveals it once the scroll (--p) reaches it. The ring beside it counts
  * the same progress and turns into a green tick when the last line lands.
  */
@@ -80,7 +81,7 @@ export default function ResumeWriter() {
 
   const done = progress >= 100
   const stage = [...stages].reverse().find(([from]) => progress / 100 >= from)?.[1] ?? stages[0][1]
-  return <section className="lp-writer" id="write" ref={sceneRef} aria-label="A resume being written in a Resumetrics template">
+  return <section className="lp-writer" id="write" ref={sceneRef} aria-label={`A resume being written in a ${BRAND.name} template`}>
     <div className="lp-writer-stage">
       <div className="lp-writer-copy">
         <h2 className="lp-title">A resume that is built to stay.</h2>

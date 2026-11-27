@@ -1,6 +1,8 @@
 // HR portal API client. The HR session is separate from candidate (Firebase) sign-in: a signed token from
 // POST /api/hr/auth/login, kept in localStorage and sent as a Bearer token.
 const API_BASE = import.meta.env.VITE_API_URL || ''
+import { BRAND } from '../../shared/brand.js'
+
 const KEY = 'resumetrics.hr.session'
 export const SESSION_ENDED = 'resumetrics:hr-session-ended'
 
@@ -39,7 +41,7 @@ async function request(path, { method = 'GET', body } = {}) {
       body: body === undefined ? undefined : JSON.stringify(body)
     })
   } catch {
-    throw new HrApiError('Couldn’t reach Resumetrics. Check your connection.', { code: 'network' })
+    throw new HrApiError(`Couldn’t reach ${BRAND.name}. Check your connection.`, { code: 'network' })
   }
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
@@ -110,7 +112,7 @@ export const hrApi = {
     try {
       response = await fetch(`${API_BASE}/api/hr/openings/${id(openingId)}/export.csv`, { headers: session ? { Authorization: `Bearer ${session.token}` } : {} })
     } catch {
-      throw new HrApiError('Couldn’t reach Resumetrics. Check your connection.', { code: 'network' })
+      throw new HrApiError(`Couldn’t reach ${BRAND.name}. Check your connection.`, { code: 'network' })
     }
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))

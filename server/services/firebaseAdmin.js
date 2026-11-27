@@ -5,6 +5,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { env } from '../config/env.js'
 import { bearerToken } from './bearer.js'
+import { BRAND } from '../../shared/brand.js'
 
 export class FirebaseServerConfigurationError extends Error {
   constructor(message) {
@@ -75,18 +76,18 @@ export function createRequireUser({ signInMessage, unavailableMessage, verify = 
         return response.status(503).json({ ok: false, error: unavailableMessage })
       }
       console.error('Firebase token verification failed:', error?.code ?? error?.message)
-      return response.status(401).json({ ok: false, error: 'Your Resumetrics session could not be verified. Please sign in again.' })
+      return response.status(401).json({ ok: false, error: `Your ${BRAND.name} session could not be verified. Please sign in again.` })
     }
   }
 }
 
 export const requireFirebaseUser = createRequireUser({
-  signInMessage: 'Sign in to Resumetrics before connecting GitHub.',
+  signInMessage: `Sign in to ${BRAND.name} before connecting GitHub.`,
   unavailableMessage: 'GitHub connection is not configured on the server yet.'
 })
 
 // AI routes spend the shared model quota, so only signed-in people may call them.
 export const requireUser = createRequireUser({
-  signInMessage: 'Sign in to Resumetrics to use AI features.',
+  signInMessage: `Sign in to ${BRAND.name} to use AI features.`,
   unavailableMessage: 'Sign-in can’t be checked on the server right now. Please try again in a few minutes.'
 })

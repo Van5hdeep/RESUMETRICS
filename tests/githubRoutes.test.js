@@ -114,7 +114,7 @@ try {
   // Choosing among installations.
   assert.equal(selectAuthorizedInstallation('', codes['alice-code']), '111')
   assert.throws(() => selectAuthorizedInstallation('', codes['two-code']), /More than one/)
-  assert.throws(() => selectAuthorizedInstallation('', codes['none-code']), /No Resumetrics GitHub App installation/)
+  assert.throws(() => selectAuthorizedInstallation('', codes['none-code']), /No installation of our GitHub App/)
   assert.equal(selectAuthorizedInstallation('222', codes['two-code']), '222')
 
   // The evidence scan calls the AI model: the AI guard runs before it, and a refusal stops the scan.

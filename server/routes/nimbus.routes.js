@@ -6,6 +6,7 @@ import { usageDay } from '../ai/usage.js'
 import { env } from '../config/env.js'
 import { isProPlan } from '../../shared/plans.js'
 import { userStore } from '../db/userStore.js'
+import { BRAND } from '../../shared/brand.js'
 
 // Guided Pro tasks (PLAN-034, D44). Free-form requests stay free; these named tools need Pro.
 export const PRO_FEATURES = ['quantify', 'tone', 'tailor', 'one-page', 'template']
@@ -61,7 +62,7 @@ export function createNimbusRouter({ users = userStore, freePerDay = () => env.l
     if (feature === 'tone' && !TONES.includes(tone)) return response.status(400).json({ ok: false, error: `Pick a tone: ${TONES.join(', ')}.` })
     const uid = request.firebaseUser?.uid
     const pro = await isPro(uid)
-    if (feature && !pro) return response.status(403).json({ ok: false, code: 'pro_required', feature: 'nimbusPro', error: 'This NIMBUS tool is part of Resumetrics Pro.' })
+    if (feature && !pro) return response.status(403).json({ ok: false, code: 'pro_required', feature: 'nimbusPro', error: `This NIMBUS tool is part of ${BRAND.pro}.` })
     if (!pro && uid && !takeFreeTurn(uid)) {
       return response.status(429).json({ ok: false, code: 'nimbus_free_limit', error: `You’ve used today’s ${freePerDay()} free NIMBUS requests. They refresh tomorrow, or Pro raises the limit. The checks and fixes that don’t need AI still work.` })
     }

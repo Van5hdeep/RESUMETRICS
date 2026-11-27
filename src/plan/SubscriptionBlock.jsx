@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { usePlan } from '../context/PlanContext.jsx'
 import './plan.css'
+import { BRAND } from '../../shared/brand.js'
 
 const TERM_LABELS = { monthly: 'Monthly', yearly: 'Yearly', lifetime: 'Lifetime' }
 
@@ -20,7 +21,7 @@ export default function SubscriptionBlock() {
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true"><path d="m3 7 4.5 4L12 5l4.5 6L21 7l-2 11H5L3 7Z" /></svg>
         {pro ? 'Pro' : 'Free'}
       </span>
-      <span className="settings-plan-text"><b>{pro ? `Resumetrics Pro${plan?.term ? ` · ${TERM_LABELS[plan.term]}` : ''}` : 'Free plan'}</b><small>{detail}</small></span>
+      <span className="settings-plan-text"><b>{pro ? `${BRAND.pro}${plan?.term ? ` · ${TERM_LABELS[plan.term]}` : ''}` : 'Free plan'}</b><small>{detail}</small></span>
       <button className={pro ? 'btn btn-secondary' : 'btn btn-primary'} type="button" onClick={() => navigate('/plan')}>{pro ? 'View plan' : 'Upgrade to Pro'}</button>
     </div>
   </div>

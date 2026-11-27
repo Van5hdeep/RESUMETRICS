@@ -16,6 +16,7 @@ import { securityHeaders } from './middleware/securityHeaders.js'
 import { createDailyTokenBudget, createMemoryUsageStore, setUsageStore, trackAiUsage } from './ai/usage.js'
 import { aiAllowance } from './ai/allowance.js'
 import { createFirestoreUsageStore, createResilientUsageStore } from './ai/usageStore.js'
+import { BRAND } from '../shared/brand.js'
 
 // Daily AI usage lives in Firestore (users/{uid}/usage/{day}) so it survives restarts and is shared by every serverless instance.
 setUsageStore(createResilientUsageStore(createFirestoreUsageStore(), createMemoryUsageStore()))
@@ -50,7 +51,7 @@ const corsForAllowed = cors()
 app.use((request, response, next) => {
   const origin = request.get('origin')
   if (!origin || isAllowedOrigin(origin)) return corsForAllowed(request, response, next)
-  return response.status(403).json({ ok: false, code: 'origin', error: 'This site is not allowed to call the Resumetrics API.' })
+  return response.status(403).json({ ok: false, code: 'origin', error: `This site is not allowed to call the ${BRAND.name} API.` })
 })
 // Behind a hosting proxy, rate limits must see the client's address, not the proxy's (RESUMETRICS_TRUST_PROXY hops).
 app.set('trust proxy', env.trustProxy)
@@ -75,7 +76,7 @@ app.use('/api/resume', requireUser, userAiLimits, enforceDailyTokenBudget, docum
 app.use('/api/nimbus', requireUser, userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, nimbusRoutes)
 // Job tailoring and the job tracker are Pro features (shared/plans.js).
 app.use('/api/jd', requireUser, createRequirePro({ feature: 'jobTailoring' }), userAiLimits, enforceDailyTokenBudget, smallJson, trackAiUsage, jdRoutes)
-const requireJobsUser = createRequireUser({ signInMessage: 'Sign in to Resumetrics to use the job tracker.', unavailableMessage: 'Sign-in can’t be checked on the server right now. Please try again in a few minutes.' })
+const requireJobsUser = createRequireUser({ signInMessage: `Sign in to ${BRAND.name} to use the job tracker.`, unavailableMessage: 'Sign-in can’t be checked on the server right now. Please try again in a few minutes.' })
 app.use('/api/jobs', requireJobsUser, createRequirePro({ feature: 'jobTracker' }), smallJson, jobsRoutes)
 // Saved resumes: signed-in users only, scoped to their own uid. Body cap = the 500 KB resume limit plus the request envelope.
 app.use('/api/user', express.json({ limit: '600kb' }), userRoutes)
@@ -110,7 +111,7 @@ if (env.ai.provider === 'mock') console.warn('AI provider is MOCK: every AI answ
 // On Vercel the app is exported as a serverless function (api/index.js) instead of listening on a port.
 if (!process.env.VERCEL) {
   app.listen(env.port, () => {
-    console.log(`Resumetrics AI server listening on http://localhost:${env.port}`)
+    console.log(`${BRAND.name} AI server listening on http://localhost:${env.port}`)
   })
 }
 

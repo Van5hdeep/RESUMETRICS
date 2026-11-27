@@ -10,6 +10,7 @@ import { evidenceStore } from '../db/evidenceStore.js'
 import { RESUME_ID } from '../db/resumeStore.js'
 import { startNdjson } from '../ai/ndjson.js'
 import { createGitHubConnectionState, githubConnectionStateTtlMs, verifyGitHubConnectionState } from '../services/githubState.js'
+import { BRAND } from '../../shared/brand.js'
 
 // Connecting GitHub always ends with a GitHub user sign-in (a one-time OAuth code). The code proves which App
 // installations that GitHub user can reach, and only one of those is ever linked to the Resumetrics account.
@@ -33,7 +34,7 @@ function isMissingGitHubInstallation(error) {
 }
 
 function publicPersistenceMessage() {
-  return 'GitHub could not be saved because Cloud Firestore is not enabled for Resumetrics yet. Create a Cloud Firestore database in Firebase Console, then try again.'
+  return 'GitHub could not be saved because Cloud Firestore is not enabled for this app yet. Create a Cloud Firestore database in Firebase Console, then try again.'
 }
 
 /** A problem the person can act on; its message is safe to show. Everything else gets a generic message. */
@@ -80,7 +81,7 @@ function redirectToWorkspace(response, outcome, parameters = {}) {
     })
     return response.redirect(302, url.toString())
   } catch {
-    return response.status(500).send('GitHub connection could not return to Resumetrics. Check FRONTEND_URL in server/.env.local.')
+    return response.status(500).send(`GitHub connection could not return to ${BRAND.name}. Check FRONTEND_URL in server/.env.local.`)
   }
 }
 
@@ -89,12 +90,12 @@ export function selectAuthorizedInstallation(installationId, authorizationIdenti
   const accessibleInstallationIds = authorizationIdentity.installationIds ?? []
   if (typeof installationId === 'string' && /^\d+$/.test(installationId)) {
     if (!accessibleInstallationIds.includes(installationId)) {
-      throw new GitHubConnectionChoiceError('Your GitHub account cannot access that installation. Install the Resumetrics App on your own account, then connect again.')
+      throw new GitHubConnectionChoiceError('Your GitHub account cannot access that installation. Install our GitHub App on your own account, then connect again.')
     }
     return installationId
   }
   if (accessibleInstallationIds.length === 1) return accessibleInstallationIds[0]
-  if (!accessibleInstallationIds.length) throw new GitHubConnectionChoiceError('No Resumetrics GitHub App installation was found for your GitHub account. Install the App, then try again.')
+  if (!accessibleInstallationIds.length) throw new GitHubConnectionChoiceError('No installation of our GitHub App was found for your GitHub account. Install the App, then try again.')
   throw new GitHubConnectionChoiceError('More than one GitHub App installation is available. Choose one installation in GitHub, then try connecting again.')
 }
 
@@ -173,7 +174,7 @@ export function createGitHubRouter({ authenticate = requireFirebaseUser, aiGuard
     const { code, state: givenState, installationId } = request.body ?? {}
     const pending = pendingFrom(request, givenState)
     if (!pending || pending.firebaseUid !== request.firebaseUser.uid) {
-      return response.status(400).json({ ok: false, error: 'This GitHub connection link expired. Start the connection again from Resumetrics.' })
+      return response.status(400).json({ ok: false, error: `This GitHub connection link expired. Start the connection again from ${BRAND.name}.` })
     }
     if (typeof code !== 'string' || !code.trim() || code.length > 500) {
       return response.status(400).json({ ok: false, error: 'GitHub did not return a valid authorization code.' })
@@ -281,7 +282,7 @@ export function createGitHubRouter({ authenticate = requireFirebaseUser, aiGuard
   router.delete('/disconnect', authenticate, async (request, response) => {
     try {
       await connections.remove(request.firebaseUser.uid)
-      return response.json({ ok: true, message: 'GitHub has been disconnected from Resumetrics. The GitHub App remains installed until you uninstall it in GitHub.' })
+      return response.json({ ok: true, message: `GitHub has been disconnected from ${BRAND.name}. The GitHub App remains installed until you uninstall it in GitHub.` })
     } catch (error) {
       console.error('GitHub disconnect failed:', error?.message)
       const message = isConfigurationError(error)
