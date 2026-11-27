@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { prefersReducedMotion } from './useLenis.js'
 import { stats } from './landingContent.js'
+import { BRAND } from '../../../shared/brand.js'
 
 /** Counts from 0 to `value` once it scrolls into view. */
 function CountUp({ value, suffix }) {
@@ -29,7 +30,7 @@ function CountUp({ value, suffix }) {
 
 /** A single quiet strip of numbers, each a real part of the app. */
 export default function StatsBand() {
-  return <section className="lp-stats" aria-label="Resumetrics in numbers">
+  return <section className="lp-stats" aria-label={`${BRAND.name} in numbers`}>
     <ul className="lp-stat-strip">
       {stats.map((stat, index) => <li key={stat.label} className="lp-reveal-up" style={{ '--delay': `${index * 80}ms` }}>
         <CountUp value={stat.value} suffix={stat.suffix} />

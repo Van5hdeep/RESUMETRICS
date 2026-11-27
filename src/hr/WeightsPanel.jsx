@@ -3,10 +3,11 @@ import { HR_CATEGORY_LABELS, HR_WEIGHTS, weightsFor } from '../../shared/hrScori
 import { Icon } from './hrUi.jsx'
 
 const HINTS = {
-  skills: 'Must-haves (counted double) and nice-to-haves found in the resume',
+  keywords: 'How much of the job description’s language the resume uses',
   experience: 'How closely past roles match this job, and years against the minimum',
+  skills: 'Must-haves (counted double) and nice-to-haves found in the resume',
   education: 'Meets the stated degree level and field',
-  keywords: 'How much of the job description’s language the resume uses'
+  completeness: 'Contact details, summary, core sections and complete job and education entries'
 }
 
 /**

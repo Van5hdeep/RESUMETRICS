@@ -3,7 +3,7 @@
 
 export const stats = [
   { value: 24, suffix: '', label: 'resume templates' },
-  { value: 131, suffix: '', label: 'fonts' },
+  { value: 100, suffix: '', label: 'point score on every resume' },
   { value: 8, suffix: '+', label: 'job boards searched' },
   { value: 25, suffix: '', label: 'repos read for proof' },
   { value: 0, suffix: '', label: 'invented facts' }
@@ -37,9 +37,26 @@ export const advantages = ['Never invents facts', 'Proof from your code', 'One-c
 
 // The HR portal (/hr), in plain words for the "For hiring teams" section.
 export const hiringPoints = [
-  ['Score every resume', 'Each resume gets a score out of 100 for skills, experience, education and keywords from your job post.'],
-  ['Compare at a glance', 'A chart and a ranked list show your strongest candidates first.'],
+  ['Read every file', 'Drop in the PDF, DOCX or TXT resumes you received. Each one is read into the same sections, whatever its layout.'],
+  ['Score and sort', 'Every resume gets a score out of 100 for keywords, experience, skills, education and completeness against your job post, with the best fit on top.'],
+  ['Compare at a glance', 'A chart and a ranked list show your strongest candidates first, with the reasons for each score.'],
   ['Shortlist and export', 'Shortlist or reject in a click, hide names for fair screening, and download the shortlist.']
 ]
 
-export const nav = [['NIMBUS', '#nimbus'], ['Inside the app', '#inside'], ['For hiring', '#hiring']]
+// The product's two sides, side by side under the hero (TwoSidesSection.jsx).
+export const sides = [
+  {
+    id: 'seekers', icon: 'doc', kicker: 'For job seekers', title: 'Resume workspace',
+    lede: 'Rework one resume into the right version for every job.',
+    points: ['Import your old resume or LinkedIn PDF, or start blank', 'Edit with NIMBUS, an AI that never invents a fact', 'Tailor it to any job post and watch your match score rise', 'Back your skills with proof from your GitHub code', 'Find openings that fit and track every application'],
+    cta: ['Start free', '/login'], more: ['See it write', '#write']
+  },
+  {
+    id: 'hiring', icon: 'stack', kicker: 'For hiring teams', title: 'HR resume organizer',
+    lede: 'Every resume you receive, read, scored and sorted.',
+    points: ['Describe the job once: skills, experience and education', 'Drop in a pile of PDF, DOCX or TXT resumes', 'Each one is read into sections and scored out of 100', 'Rank, compare and filter, with the reasons shown', 'Shortlist, hide names for fair screening, and export'],
+    cta: ['Try the hiring demo', '/hr/login'], more: ['See the portal', '#hiring']
+  }
+]
+
+export const nav = [['Two sides', '#sides'], ['NIMBUS', '#nimbus'], ['Inside the app', '#inside'], ['For hiring teams', '#hiring']]

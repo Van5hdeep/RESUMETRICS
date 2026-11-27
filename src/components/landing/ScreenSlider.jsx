@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import LandingIcon from './LandingIcon.jsx'
 import { screens } from './landingContent.js'
 import { getLenis } from './useLenis.js'
+import { BRAND } from '../../../shared/brand.js'
 
 // Footer links like #tailor open their screen.
 const HASH_TO_SCREEN = { tailor: 'tailor', letter: 'letter', evidence: 'evidence', jobs: 'jobs', inside: null }
@@ -62,7 +63,7 @@ export default function ScreenSlider() {
   const current = screens[active]
   return <section className="lp-inside" id="inside" ref={sectionRef} data-cine aria-roledescription="carousel" aria-labelledby="lp-inside-title">
     {Object.keys(HASH_TO_SCREEN).filter(id => id !== 'inside').map(id => <span key={id} id={id} className="lp-anchor" aria-hidden="true" />)}
-    <h2 className="lp-title is-center" id="lp-inside-title">Inside Resumetrics</h2>
+    <h2 className="lp-title is-center" id="lp-inside-title">Inside {BRAND.name}</h2>
 
     <div className="lp-slider" onKeyDown={event => {
       if (event.key === 'ArrowLeft') { event.preventDefault(); go(-1) }
@@ -86,7 +87,7 @@ export default function ScreenSlider() {
             <button type="button" className="lp-screen-window" tabIndex={offset === 0 ? 0 : -1}
               onClick={event => { if (drag.current?.moved) { event.preventDefault(); return } if (offset === 0) setOpen(true); else setActive(index) }}
               aria-label={offset === 0 ? `Enlarge ${screen.name}` : `Show ${screen.name}`}>
-              <span className="lp-screen-bar" aria-hidden="true"><i /><i /><i /><span>resumetrics.app/{screen.path}</span></span>
+              <span className="lp-screen-bar" aria-hidden="true"><i /><i /><i /><span>{BRAND.domain}/{screen.path}</span></span>
               <img src={screen.src} alt={offset === 0 ? screen.alt : ''} loading={depth > 1 ? 'lazy' : 'eager'} decoding="async" width="2160" height="1350" draggable="false" />
             </button>
           </figure>

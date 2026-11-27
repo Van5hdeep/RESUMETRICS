@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import LandingNav from '../components/landing/LandingNav.jsx'
 import GoldHero from '../components/landing/GoldHero.jsx'
+import TwoSidesSection from '../components/landing/TwoSidesSection.jsx'
 import ResumeWriter from '../components/landing/ResumeWriter.jsx'
 import StatsBand from '../components/landing/StatsBand.jsx'
 import NimbusSection from '../components/landing/NimbusSection.jsx'
@@ -24,6 +25,7 @@ export default function LandingPage() {
     <LandingNav />
     <main className="lp-main">
       <GoldHero />
+      <TwoSidesSection />
       <ResumeWriter />
       <StatsBand />
       <NimbusSection />

@@ -64,13 +64,14 @@ import UpgradeDialog from './plan/UpgradeDialog.jsx'
 import SubscriptionBlock from './plan/SubscriptionBlock.jsx'
 import PlanPage from './plan/PlanPage.jsx'
 import JobTrackerPage from './jobs/JobTrackerPage.jsx'
+import { BRAND } from '../shared/brand.js'
 
 // [label, path, icon, gate, pro]. Items with a gate need a resume: they open the "Select a resume first" pop-up over
 // the current page (PLAN-033). Pro items send free accounts to the plan page instead (shared/plans.js).
 const navSections = [
   { label: 'Main menu', items: [
     ['Dashboard', '/dashboard', 'dashboard'],
-    ['Resume builder', '/workspace', 'create'],
+    ['Resume workspace', '/workspace', 'create'],
     ['Templates', '/templates', 'layout'],
     ['Plan', '/plan', 'crown']
   ] },
@@ -345,7 +346,7 @@ function GoogleMark() {
 // Accent shades replace the old light/dark/system choice; the interface always stays light.
 const accentShadeStorageKey = 'resumetrics-shade'
 const accentShades = [
-  ['violet', 'Violet', 'The original Resumetrics look', ['#5b45e4', '#6c58f2', '#efecff']],
+  ['violet', 'Violet', `The original ${BRAND.name} look`, ['#5b45e4', '#6c58f2', '#efecff']],
   ['ocean', 'Ocean', 'Calm, trustworthy blue', ['#2563eb', '#3b82f6', '#e6effe']],
   ['emerald', 'Emerald', 'Fresh and confident green', ['#0e9466', '#16b07c', '#e2f5ec']],
   ['rose', 'Rose', 'Warm and personable', ['#db3f68', '#ec5f84', '#fde8ee']],
@@ -483,7 +484,7 @@ function GeneralSettingsPanel() {
 
       {activeTab === 'privacy' && <>
         <h2>Privacy & Data</h2>
-        <p className="settings-intro">Your resumes are saved to your Resumetrics account, so they follow you to any device. Only you can open them, and your Google password is never seen or stored.</p>
+        <p className="settings-intro">Your resumes are saved to your {BRAND.name} account, so they follow you to any device. Only you can open them, and your Google password is never seen or stored.</p>
         <div className="settings-block">
           <span><b>Delete a resume</b><small>Pick a project on the dashboard and choose Delete. Deleting removes it from your account for good.</small></span>
         </div>
@@ -641,7 +642,7 @@ function DashboardPage() {
       ...list('Certifications', data.certifications || []),
       ...list('Achievements', data.achievements || [])
     ].filter(line => line != null).join('\n')
-    downloadBlob(new Blob([text], { type: 'text/plain;charset=utf-8' }), `resumetrics-${safeFileName(project.name)}.txt`)
+    downloadBlob(new Blob([text], { type: 'text/plain;charset=utf-8' }), `refile-${safeFileName(project.name)}.txt`)
   }
 
   // The "..." menu on a card: closes on an outside click or Escape.
@@ -774,14 +775,15 @@ const helpTopics = [
 ]
 
 const helpArticles = [
-  { topic: 'start', question: 'What is Resumetrics?', answer: 'Resumetrics is a resume builder with an AI writing partner called NIMBUS. You write or import a resume, choose from 24 templates, edit it in place, tailor it to job posts, check your skills against your GitHub code and download it. NIMBUS only uses facts from your resume or what you tell it, so nothing is invented.' },
-  { topic: 'start', question: 'How do I create my first resume?', steps: ['Open Resume builder from the sidebar, or select Create new project on the dashboard.', 'Start from scratch, upload a resume, or import your LinkedIn profile.', 'Pick a template. You will see a live preview of each design.', 'Fill in or review your sections in the editor. It saves automatically, and you can export whenever you like.'] },
-  { topic: 'start', question: 'What can I do from the sidebar?', answer: 'Resume tools has the Resume builder, Templates and Plan. Career tools has Cover letters, Evidence check, Job tailoring and the Job tracker. Cover letters, Evidence check and Job tailoring work on a saved resume, so each one opens a short list of your saved resumes to choose from.' },
+  { topic: 'start', question: `What is ${BRAND.name}?`, answer: `${BRAND.name} has two sides. For job seekers it is a resume workspace: import or write one resume, then rework it into the right version for every job with NIMBUS, an AI writing partner that only uses your own facts. Tailor it to job posts, back your skills with your GitHub code, write cover letters and find and track openings. For hiring teams, ${BRAND.name} Hiring (/hr) is a resume organizer: post an opening, drop in the resumes you receive and get them read, scored and sorted against the job.` },
+  { topic: 'start', question: 'Is there a version for hiring teams?', answer: `Yes. ${BRAND.name} Hiring is a separate portal at /hr with its own work-email accounts. Describe the job once, upload the PDF, DOCX or TXT resumes you received, and each one is read into sections, scored out of 100 and ranked, with the reasons shown. Shortlist or reject in a click, hide names for fair screening and export the shortlist. Open it from "Hiring? Sign in to the HR portal" on the sign-in page.` },
+  { topic: 'start', question: 'How do I create my first resume?', steps: ['Open Resume workspace from the sidebar, or select Create new project on the dashboard.', 'Start from scratch, upload a resume, or import your LinkedIn profile.', 'Pick a template. You will see a live preview of each design.', 'Fill in or review your sections in the editor. It saves automatically, and you can export whenever you like.'] },
+  { topic: 'start', question: 'What can I do from the sidebar?', answer: 'Main menu has the Dashboard, the Resume workspace, Templates and Plan. Resume tools has Cover letters and the Evidence check. Career tools has Job tailoring and the Job tracker. Cover letters, Evidence check and Job tailoring work on a saved resume, so each one opens a short list of your saved resumes to choose from.' },
   { topic: 'start', question: 'What can I do with my projects on the dashboard?', answer: 'Every saved resume shows as a card with a live miniature of the resume in its own template. Select a card to see its progress at the top, then press Open. The ⋮ menu on a card lets you rename it, export it as a text file or delete it.' },
-  { topic: 'start', question: 'Why do I need to sign in with Google?', answer: 'Signing in keeps your resumes private to you and lets them follow you to any device. It also lets Resumetrics connect services such as GitHub to your account. Your Google password is never seen or stored by Resumetrics.' },
+  { topic: 'start', question: 'Why do I need to sign in with Google?', answer: `Signing in keeps your resumes private to you and lets them follow you to any device. It also lets ${BRAND.name} connect services such as GitHub to your account. Your Google password is never seen or stored by ${BRAND.name}.` },
   { topic: 'import', question: 'Which files can I import?', answer: 'You can import PDF, DOCX and TXT files. PDFs exported from a word processor work best. Scanned images or photos of a resume may not contain readable text.' },
-  { topic: 'import', question: 'What happens after I upload my resume?', answer: 'Resumetrics reads the text in your file and sorts it into sections such as experience, education and skills. You then get a review screen to check everything before choosing a template. Nothing is added that was not in your file.' },
-  { topic: 'import', question: 'How do I start from my LinkedIn profile?', steps: ['On a desktop browser, open LinkedIn and go to Me → View Profile.', 'Choose Resources (or More), then Save to PDF.', 'In Resumetrics, choose Import from LinkedIn, upload that PDF, then pick a template.'] },
+  { topic: 'import', question: 'What happens after I upload my resume?', answer: `${BRAND.name} reads the text in your file and sorts it into sections such as experience, education and skills. You then get a review screen to check everything before choosing a template. Nothing is added that was not in your file.` },
+  { topic: 'import', question: 'How do I start from my LinkedIn profile?', steps: ['On a desktop browser, open LinkedIn and go to Me → View Profile.', 'Choose Resources (or More), then Save to PDF.', `In ${BRAND.name}, choose Import from LinkedIn, upload that PDF, then pick a template.`] },
   { topic: 'editing', question: 'How do I edit text on my resume?', answer: 'In the editor, click any text on the resume to edit it. The Format panel changes fonts, size and colours, and you can highlight words to make just those bold, italic or underlined.' },
   { topic: 'editing', question: 'Can I change the template or font later?', answer: 'Yes. Switching templates keeps all your content, so you never retype anything. There are 24 templates, single and two-column, and a catalogue of 131 fonts in the Format panel. Pick a single-column design with a plain font if the employer uses applicant tracking systems.' },
   { topic: 'editing', question: 'Can I add a profile photo?', answer: 'Yes, on templates that support a photo. Upload a JPEG image from the editor, then adjust its position and size.' },
@@ -794,7 +796,7 @@ const helpArticles = [
   { topic: 'export', question: 'Is my resume saved automatically?', answer: 'Yes. Your resume saves to your account as you type, so it is there on any device you sign in on. The editor shows the save status, and Save forces a save right away.' },
   { topic: 'export', question: 'Can I go back to an earlier version?', answer: 'Yes. Version history in the editor keeps automatic checkpoints, and you can also save a version yourself. Restoring one brings that version back without losing your newer work, since your current state is checkpointed first.' },
   { topic: 'export', question: 'Which formats can I download?', answer: 'Use the Export menu in the editor to download your resume as a PDF, a Word document (DOCX) or plain text (TXT). A cover letter added to the resume becomes its first page. On the dashboard, the ⋮ menu on a card exports a resume as a text file.' },
-  { topic: 'export', question: 'Where is my data stored, and how do I remove it?', answer: 'Your resumes, GitHub scans and job applications are stored in your Resumetrics account and only you can open them. To remove a resume, use the ⋮ menu on its card and choose Delete; it is removed from your account for good. See Settings → Privacy & Data for more.' },
+  { topic: 'export', question: 'Where is my data stored, and how do I remove it?', answer: `Your resumes, GitHub scans and job applications are stored in your ${BRAND.name} account and only you can open them. To remove a resume, use the ⋮ menu on its card and choose Delete; it is removed from your account for good. See Settings → Privacy & Data for more.` },
   { topic: 'plans', question: 'What does the free plan include?', answer: `The free plan includes ${FREE_RESUME_LIMIT} resumes with every template, NIMBUS, cover letters, the evidence check and export. Deleting a resume that is under ${COUNTED_DELETE_PERCENT}% complete frees its slot; a more complete one keeps counting.` },
   { topic: 'plans', question: 'What does Pro add, and what does it cost?', answer: 'Pro adds unlimited resumes, job tailoring and the job tracker. It is ₹299 a month or ₹2,399 a year, or ₹4,999 once for lifetime access. See Plan in the sidebar to compare. Your current plan is shown in Settings.' }
 ]
@@ -855,9 +857,9 @@ function HelpPage() {
 
       <section className="help-contact">
         <span className="help-topic-icon" aria-hidden="true"><Icon name="help" size={22} /></span>
-        <div><b>Still need help?</b><p>Open the resume builder to try things out, or review your account, plan and data options in Settings.</p></div>
+        <div><b>Still need help?</b><p>Open the resume workspace to try things out, or review your account, plan and data options in Settings.</p></div>
         <div className="help-contact-actions">
-          <button type="button" onClick={() => navigate('/workspace')}>Open resume builder</button>
+          <button type="button" onClick={() => navigate('/workspace')}>Open resume workspace</button>
           <button type="button" className="is-primary" onClick={() => navigate('/settings')}>Go to Settings</button>
         </div>
       </section>
@@ -909,7 +911,7 @@ function TemplatePreviewDialog({ template, previewData = templatePreviewResumeDa
         <p>{template.summary}</p>
         <span className="template-gallery-tags">{(template.tags ?? []).filter(tag => !/^(single|two)-column$/i.test(tag)).map(tag => <i key={tag}>{tag}</i>)}</span>
         <button className="template-preview-use" type="button" onClick={onUse} autoFocus>Use this template</button>
-        <small className="template-gallery-source">{template.collection === 'reactive-resume' ? 'Adapted from Reactive Resume' : template.collection === 'latex' ? 'LaTeX classic' : 'Resumetrics classic'}</small>
+        <small className="template-gallery-source">{template.collection === 'reactive-resume' ? 'Adapted from Reactive Resume' : template.collection === 'latex' ? 'LaTeX classic' : `${BRAND.name} classic`}</small>
       </div>
     </div>
   </div>
@@ -957,7 +959,7 @@ function TemplateGallery({ title = 'Templates', subtitle, previewData = template
                   <b>{template.name}</b>
                   <small>{template.description}</small>
                   <span className="template-gallery-tags">{(template.tags ?? []).filter(tag => !/^(single|two)-column$/i.test(tag)).slice(0, 3).map(tag => <i key={tag}>{tag}</i>)}</span>
-                  <span className="template-gallery-source">{template.collection === 'reactive-resume' ? 'Reactive Resume' : template.collection === 'latex' ? 'LaTeX classic' : 'Resumetrics classic'}</span>
+                  <span className="template-gallery-source">{template.collection === 'reactive-resume' ? 'Reactive Resume' : template.collection === 'latex' ? 'LaTeX classic' : `${BRAND.name} classic`}</span>
                 </span>
               </button>
             </li>
@@ -1021,7 +1023,7 @@ function Shell({ children, immersive = false, dashboard = false, studio = false 
 
   return <div className={`app-shell${immersive ? ' editor-shell' : ''}${dashboard ? ' dashboard-shell' : ''}${studio ? ' studio-shell' : ''}`}>
     {!immersive && <aside className="sidebar">
-      <NavLink to="/dashboard" state={{ refresh: true }} className="brand" aria-label="Resumetrics dashboard">
+      <NavLink to="/dashboard" state={{ refresh: true }} className="brand" aria-label={`${BRAND.name} dashboard`}>
         <BrandLogo animate="once" name="sidebar" dot reveal />
       </NavLink>
       <hr className="sidebar-divider" />
@@ -1498,7 +1500,7 @@ function MainPage() {
     if (authorizationCode) {
       if (authorizationState) finishGitHubAuthorization()
       else {
-        setGithubConnectionError('GitHub returned an authorization response without a valid connection state. Start the connection again from Resumetrics.')
+        setGithubConnectionError(`GitHub returned an authorization response without a valid connection state. Start the connection again from ${BRAND.name}.`)
         window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`)
       }
       return
@@ -1564,11 +1566,11 @@ function MainPage() {
 
   const exportDraft = async (format = 'TXT') => {
     if (!isEditorReady || exportLoading) return
-    const resumeContent = `${resumeName}\n${resumeData?.headline || ''}\n${selectedTemplate?.name || 'Resumetrics draft'}\n\n${editorRef.current?.innerText || resumeData?.summary || 'Start editing your resume in Resumetrics.'}`
+    const resumeContent = `${resumeName}\n${resumeData?.headline || ''}\n${selectedTemplate?.name || `${BRAND.name} draft`}\n\n${editorRef.current?.innerText || resumeData?.summary || 'Start editing your resume in Resumetrics.'}`
     // A cover letter added to the resume is the first page of every export.
     const letterText = letterOnResume ? letterToText(coverLetter, resumeData) : ''
     const content = letterText ? `${letterText}\n\n----------\n\n${resumeContent}` : resumeContent
-    const baseName = `resumetrics-${safeFileName(resumeName)}`
+    const baseName = `refile-${safeFileName(resumeName)}`
     setExportLoading(true)
     try {
       if (format === 'TXT') {

@@ -1,5 +1,6 @@
 import { isProPlan, PRO_FEATURES } from '../../shared/plans.js'
 import { userStore } from '../db/userStore.js'
+import { BRAND } from '../../shared/brand.js'
 
 const CACHE_MS = 60_000
 
@@ -20,7 +21,7 @@ export function createRequirePro({ feature, users = userStore, now = () => Date.
         cache.set(uid, entry)
       }
       if (isProPlan(entry.plan, now())) return next()
-      return response.status(403).json({ ok: false, code: 'pro_required', feature, error: `${name} is part of Resumetrics Pro.` })
+      return response.status(403).json({ ok: false, code: 'pro_required', feature, error: `${name} is part of ${BRAND.pro}.` })
     } catch (error) {
       console.error('Could not check the plan:', error?.message)
       return response.status(503).json({ ok: false, error: 'Your plan could not be checked. Please try again.' })

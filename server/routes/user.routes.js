@@ -4,11 +4,12 @@ import { RESUME_ID, ResumeStoreError, resumeStore } from '../db/resumeStore.js'
 import { evidenceStore } from '../db/evidenceStore.js'
 import { SettingsError, userStore } from '../db/userStore.js'
 import { isProPlan } from '../../shared/plans.js'
+import { BRAND } from '../../shared/brand.js'
 
 const VERSION_ID = /^[A-Za-z0-9_-]{8,64}$/
 
 const requireAccount = createRequireUser({
-  signInMessage: 'Sign in to Resumetrics to save your work.',
+  signInMessage: `Sign in to ${BRAND.name} to save your work.`,
   unavailableMessage: 'Saving isn’t available right now. Please try again in a few minutes.'
 })
 
@@ -25,7 +26,7 @@ function fail(response, error, fallback) {
   }
   if (error instanceof SettingsError) return response.status(400).json({ ok: false, code: 'invalid', error: error.message })
   console.error(`${fallback}:`, error?.message)
-  if (isFirestoreUnavailable(error)) return response.status(503).json({ ok: false, code: 'unavailable', error: 'Data could not be saved because Cloud Firestore is not enabled for Resumetrics yet. Create a Cloud Firestore database in Firebase Console, then try again.' })
+  if (isFirestoreUnavailable(error)) return response.status(503).json({ ok: false, code: 'unavailable', error: 'Data could not be saved because Cloud Firestore is not enabled for this app yet. Create a Cloud Firestore database in Firebase Console, then try again.' })
   return response.status(500).json({ ok: false, code: 'server', error: `${fallback}.` })
 }
 

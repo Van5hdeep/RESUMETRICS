@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { bandOf, candidatesCsv, candidateSummary, rankCandidates, scoreCandidate, validateWeights, weightsFor } from '../shared/hrScoring.js'
+import { bandOf, candidateAts, candidatesCsv, candidateSummary, groupOf, HR_THRESHOLD, knockoutsFor, rankCandidates, scoreCandidate, screen, thresholdFor, validateScreening, validateWeights, weightsFor } from '../shared/hrScoring.js'
 import { isHrPro, openingsLeft } from '../shared/hrPlans.js'
 
 const now = new Date(2026, 10, 1)
@@ -29,8 +29,8 @@ const weak = {
 }
 
 // Weights: education drops out when no requirement is stated, and the rest still add to 100.
-assert.deepEqual(weightsFor(opening), { skills: 56, experience: 33, keywords: 11 })
-assert.deepEqual(weightsFor({ ...opening, education: "Bachelor's in Computer Science" }), { skills: 50, experience: 30, education: 10, keywords: 10 })
+assert.deepEqual(weightsFor(opening), { keywords: 44, experience: 28, skills: 22, completeness: 6 })
+assert.deepEqual(weightsFor({ ...opening, education: "Bachelor's in Computer Science" }), { keywords: 40, experience: 25, skills: 20, education: 10, completeness: 5 })
 
 // A matching resume scores high, with every must-have found; an unrelated one scores low and lists what is missing.
 const good = scoreCandidate(strong, opening, { now })
@@ -56,7 +56,8 @@ assert.equal(rows[1].missingMustHave.length, 3)
 assert.equal(candidateSummary({ id: 'c', resumeData: {}, fileName: 'blank.pdf' }, opening, { now }).name, 'blank.pdf')
 
 // Custom weights: always add to 100, education still drops out when not required, all-zero falls back to defaults.
-assert.deepEqual(weightsFor({ ...opening, weights: { skills: 1, experience: 1, education: 5, keywords: 1 } }), { skills: 34, experience: 33, keywords: 33 })
+// Openings saved before Completeness existed have no weight for it, so it counts for 0 there.
+assert.deepEqual(weightsFor({ ...opening, weights: { skills: 1, experience: 1, education: 5, keywords: 1 } }), { keywords: 34, experience: 33, skills: 33, completeness: 0 })
 assert.deepEqual(weightsFor({ ...opening, weights: { skills: 0, experience: 0, education: 0, keywords: 0 } }), weightsFor(opening))
 assert.throws(() => validateWeights({ skills: -1 }), /between 0 and 100/)
 assert.throws(() => validateWeights({ skills: 0, experience: 0, education: 0, keywords: 0 }), /above 0/)
@@ -89,6 +90,50 @@ assert.equal(bandOf(75).id, 'strong')
 assert.equal(bandOf(74).id, 'good')
 assert.equal(bandOf(40).id, 'fair')
 assert.equal(bandOf(0).id, 'weak')
+
+// Section completeness is a scored category of its own.
+assert.equal(typeof good.categories.completeness.score, 'number')
+// Asha has a summary and Ben doesn't; neither lists an email, phone or city, nor an end year for education.
+assert.equal(good.categories.completeness.score, 65)
+assert.equal(poor.categories.completeness.score, 45)
+
+// Threshold: 65 unless the opening sets 40–90; anything else falls back.
+assert.equal(HR_THRESHOLD, 65)
+assert.equal(thresholdFor({}), 65)
+assert.equal(thresholdFor({ threshold: 72 }), 72)
+assert.equal(thresholdFor({ threshold: 10 }), 65)
+assert.deepEqual(validateScreening({ threshold: 70.4, knockouts: { minYears: true, mustHave: 'yes' } }), { threshold: 70, knockouts: { minYears: true, mustHave: false } })
+assert.throws(() => validateScreening({ threshold: 95 }), /between 40 and 90/)
+assert.throws(() => validateScreening({ knockouts: null }), /on\/off switches/)
+assert.deepEqual(knockoutsFor({}), { minYears: false, mustHave: false })
+
+// Screening: passing needs the threshold and no knockout; knockouts apply only when switched on.
+assert.equal(good.screening.passed, true)
+assert.equal(good.screening.qualifies, true)
+assert.equal(poor.screening.passed, false)
+assert.deepEqual(poor.screening.knockouts, [])
+const knocked = screen(poor, { ...opening, knockouts: { minYears: true, mustHave: true } })
+assert.deepEqual(knocked.knockouts.map(item => item.id), ['minYears', 'mustHave'])
+assert.match(knocked.knockouts[1].detail, /^Missing React, JavaScript, CSS$/)
+const highButMissing = screen({ ...good, mustHave: { ...good.mustHave, items: [...good.mustHave.items, { term: 'Vue', found: false }] } }, { ...opening, knockouts: { mustHave: true } })
+assert.equal(highButMissing.passed, true)
+assert.equal(highButMissing.qualifies, false)
+
+// Groups: failing ATS readability comes first (not evaluated); then threshold and knockouts decide.
+assert.equal(groupOf({ qualified: false }, good.screening), 'ats')
+assert.equal(groupOf({ qualified: true }, good.screening), 'ranked')
+assert.equal(groupOf({ qualified: true }, poor.screening), 'below')
+
+// The ATS result: the stored one when the file was checked at upload, else worked out from the resume alone.
+assert.deepEqual(candidateAts({ ats: { score: 88, qualified: true, failed: [] } }), { score: 88, qualified: true, failed: [], fileChecked: true })
+const fromResume = candidateAts({ resumeData: strong })
+assert.equal(fromResume.fileChecked, false)
+assert.equal(typeof fromResume.score, 'number')
+const summaryRow = candidateSummary({ id: 'a', resumeData: strong, fileName: 'asha.pdf', ats: { score: 91, qualified: true, failed: [] } }, opening, { now })
+assert.equal(summaryRow.group, 'ranked')
+assert.equal(summaryRow.ats.score, 91)
+assert.equal(summaryRow.threshold, 65)
+assert.equal(candidateSummary({ id: 'b', resumeData: strong, fileName: 'asha.pdf', ats: { score: 40, qualified: false, failed: [] } }, opening, { now }).group, 'ats')
 
 // Plans
 assert.equal(isHrPro({ tier: 'pro', status: 'active' }), true)

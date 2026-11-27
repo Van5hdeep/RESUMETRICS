@@ -1,11 +1,11 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="src/assets/brand/lockup-white.svg">
-    <img src="src/assets/brand/lockup.svg" alt="Resumetrics" width="340">
+    <img src="src/assets/brand/lockup.svg" alt="Refile" width="220">
   </picture>
 </p>
 
-<p align="center"><b>Resumes built from your real work, tuned to every job.</b></p>
+<p align="center"><b>Refine your resume for every job. Organize every resume you receive.</b></p>
 
 <p align="center">
   <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white">
@@ -16,14 +16,18 @@
   <img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-5b45e4">
 </p>
 
-<p align="center"><img src="public/landing/shots/editor.webp" alt="The Resumetrics editor with NIMBUS, the resume page and the format panel" width="900"></p>
+<p align="center"><img src="public/landing/shots/editor.webp" alt="The Refile editor with NIMBUS, the resume page and the format panel" width="900"></p>
 
-Resumetrics is a resume builder for job seekers in India. You write or import a resume, and an AI assistant called
-**NIMBUS** helps you improve it without ever adding facts you didn't give it. You can tailor the resume to a job post,
-write a matching cover letter, back up your skills with your own GitHub code, and track the jobs you apply to.
+Refile (formerly Resumetrics) is a resume workspace with two sides.
 
-It also has a separate portal for **hiring teams** at `/hr`: recruiters post a job, upload the resumes they received,
-and get them scored and ranked against the job.
+- **For job seekers:** write or import one resume, then rework it into the right version for every job. An AI
+  assistant called **NIMBUS** helps without ever adding facts you didn't give it. Tailor the resume to a job post,
+  write a matching cover letter, back up your skills with your own GitHub code, and find and track the jobs you apply to.
+- **For hiring teams:** Refile Hiring at `/hr` is a resume organizer. Recruiters post a job, upload the resumes they
+  received, and get them read, scored and sorted against the job.
+
+The product name lives in `shared/brand.js`. Environment variables, storage keys and the Firebase project keep the
+`resumetrics` name on purpose, so existing setups and sign-ins keep working.
 
 ---
 

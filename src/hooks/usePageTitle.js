@@ -1,12 +1,13 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
+import { BRAND } from '../../shared/brand.js'
 
-const APP = 'Resumetrics'
-const HIRING = 'Resumetrics Hiring'
+const APP = BRAND.name
+const HIRING = BRAND.hiring
 
 // [path pattern, title]. First match wins; the HR portal has its own suffix so its tabs are easy to tell apart.
 const TITLES = [
-  [/^\/$/, `${APP} — The resume your work deserves`],
+  [/^\/$/, `${APP} — Resume workspace and HR resume organizer`],
   [/^\/login\/?$/, `Sign in · ${APP}`],
   [/^\/dashboard\/?$/, `Dashboard · ${APP}`],
   [/^\/workspace\/editor/, `Editor · ${APP}`],
@@ -14,7 +15,7 @@ const TITLES = [
   [/^\/workspace\/letter/, `Cover letter · ${APP}`],
   [/^\/workspace\/evidence/, `Evidence check · ${APP}`],
   [/^\/workspace\/templates/, `Choose a template · ${APP}`],
-  [/^\/workspace/, `Resume builder · ${APP}`],
+  [/^\/workspace/, `Resume workspace · ${APP}`],
   [/^\/templates\/?$/, `Templates · ${APP}`],
   [/^\/settings\/?$/, `Settings · ${APP}`],
   [/^\/help\/?$/, `Help & support · ${APP}`],

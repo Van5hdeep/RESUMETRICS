@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { getConnectionStore } from '../services/firebaseAdmin.js'
 import { HR_FREE_OPENING_LIMIT, HR_FREE_RESUMES_PER_OPENING, isHrPro, resumesPerOpening } from '../../shared/hrPlans.js'
-import { CANDIDATE_STATUSES, descriptionLines, EMPLOYMENT_TYPES, validateWeights } from '../../shared/hrScoring.js'
+import { CANDIDATE_STATUSES, descriptionLines, EMPLOYMENT_TYPES, validateScreening, validateWeights } from '../../shared/hrScoring.js'
 import { extractJd } from '../../shared/jdExtract.js'
 import { verificationFor } from '../../shared/hrRegistration.js'
 
@@ -77,6 +77,8 @@ const toOpening = (id, raw) => ({
   // Settings HR changes on the opening page (not in the job form).
   blind: raw.blind === true,
   weights: raw.weights ?? null,
+  threshold: Number.isFinite(raw.threshold) ? raw.threshold : null,
+  knockouts: raw.knockouts ?? null,
   status: raw.status === 'closed' ? 'closed' : 'open',
   closedAt: toIso(raw.closedAt),
   createdAt: toIso(raw.createdAt),
@@ -122,7 +124,7 @@ export function openingFullError(limit) {
 }
 const MAX_BULK = 50
 
-/** { blind?, weights?, status? } from the opening page; anything else is ignored. */
+/** { blind?, weights?, status?, threshold?, knockouts? } from the opening page; anything else is ignored. */
 export function validateOpeningSettings(input = {}) {
   const settings = {}
   if (input.blind !== undefined) settings.blind = input.blind === true
@@ -133,6 +135,7 @@ export function validateOpeningSettings(input = {}) {
   if (input.weights !== undefined) {
     try { settings.weights = validateWeights(input.weights) } catch (error) { throw new HrStoreError('invalid', error.message) }
   }
+  try { Object.assign(settings, validateScreening(input)) } catch (error) { throw new HrStoreError('invalid', error.message) }
   if (!Object.keys(settings).length) throw new HrStoreError('invalid', 'Nothing to change.')
   return settings
 }

@@ -1,4 +1,5 @@
 import { hiringPoints } from './landingContent.js'
+import { BRAND } from '../../../shared/brand.js'
 
 /** A short word for hiring teams: what the HR portal at /hr does, with a real screen from it. */
 export default function HiringSection() {
@@ -6,8 +7,8 @@ export default function HiringSection() {
     <div className="lp-hiring-inner">
       <div className="lp-hiring-copy">
         <p className="lp-hiring-kicker">For hiring teams</p>
-        <h2 className="lp-title" id="lp-hiring-title">Hiring? Rank resumes in minutes.</h2>
-        <p className="lp-hiring-lede">Resumetrics Hiring is a separate portal for recruiters. Post a job, drop in the resumes you received, and see who fits best.</p>
+        <h2 className="lp-title" id="lp-hiring-title">Every resume you receive, organized.</h2>
+        <p className="lp-hiring-lede">{BRAND.hiring} is the HR side of {BRAND.name}: a resume organizer for recruiters. Post a job, drop in the resumes you received, and see them read, scored and sorted with the best fit on top.</p>
         <ul className="lp-hiring-points">
           {hiringPoints.map(([title, text]) => <li key={title}><b>{title}</b><span>{text}</span></li>)}
         </ul>
@@ -18,7 +19,7 @@ export default function HiringSection() {
       </div>
       <figure className="lp-hiring-shot">
         <div className="lp-screen-window is-static">
-          <span className="lp-screen-bar" aria-hidden="true"><i /><i /><i /><span>resumetrics.app/hr</span></span>
+          <span className="lp-screen-bar" aria-hidden="true"><i /><i /><i /><span>{BRAND.domain}/hr</span></span>
           <img src="/landing/shots/hr-compare.webp" alt="The hiring portal comparing three candidates on a chart above a ranked list of resumes" loading="lazy" decoding="async" width="2160" height="1350" />
         </div>
       </figure>

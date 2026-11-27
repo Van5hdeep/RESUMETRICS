@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import BrandLogo from '../BrandLogo.jsx'
 import LandingIcon from './LandingIcon.jsx'
 import { nav } from './landingContent.js'
+import { BRAND } from '../../../shared/brand.js'
 import { onScroll } from './useLenis.js'
 
 /** Floating pill nav: glass on the mustard hero, solid once the page scrolls past it. */
@@ -16,7 +17,7 @@ export default function LandingNav() {
     return onScroll(update)
   }, [])
   return <header className={`lp-nav${solid ? ' is-solid' : ''}${open ? ' is-open' : ''}`}>
-    <a href="#top" className="lp-nav-brand" aria-label="Resumetrics home"><BrandLogo wordmark={false} /></a>
+    <a href="#top" className="lp-nav-brand" aria-label={`${BRAND.name} home`}><BrandLogo wordmark={false} /></a>
     <nav className="lp-nav-links" aria-label="Page sections">
       {nav.map(([label, href]) => <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>)}
     </nav>

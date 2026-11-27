@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import BrandLogo from '../components/BrandLogo.jsx'
 import './login.css'
+import { BRAND } from '../../shared/brand.js'
 
 // The approval stamp plays for this long before the page transitions into the workspace.
 const APPROVAL_MS = 2400
@@ -106,7 +107,7 @@ export default function Login() {
   return <main className={`login-page login-page--${authStage}`}>
     <div className="login-hero">
       <ResumeShowcaseArt />
-      <h2 className="login-showcase-title">Build a resume you can stand behind.</h2>
+      <h2 className="login-showcase-title">Refine your resume for every job.</h2>
     </div>
 
     <div className="login-shell">
@@ -121,7 +122,7 @@ export default function Login() {
             {loading ? <span className="login-spinner" aria-hidden="true" /> : <GoogleMark />}
             {loading ? 'Signing in…' : 'Continue with Google'}
           </button>
-          <p className="login-note">New to Resumetrics? Signing in with Google creates your workspace.</p>
+          <p className="login-note">New to {BRAND.name}? Signing in with Google creates your workspace.</p>
           <ul className="login-assurances">
             <li>Your password stays with Google</li>
             <li>Your resumes stay private to your account</li>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { getSession, signIn, startDemo } from './hrApi.js'
 import BrandLogo from '../components/BrandLogo.jsx'
+import { BRAND } from '../../shared/brand.js'
 
 // Decorative ranked shortlist: the portal's one idea, drawn.
 function RankingArt() {
@@ -23,8 +24,8 @@ function RankingArt() {
 export function HrAuthSide({ title, lede }) {
   return <section className="hr-login-side">
     <div className="hr-login-brand"><BrandLogo animate /><em>Hiring</em></div>
-    <h2>{title ?? <>Hire from evidence,<br /><em>not guesswork.</em></>}</h2>
-    <p>{lede ?? 'Describe the job once. Every resume you upload is scored against it and ranked, with the reasons shown.'}</p>
+    <h2>{title ?? <>Every resume you receive,<br /><em>organized.</em></>}</h2>
+    <p>{lede ?? 'Describe the job once. Every resume you upload is read into sections, scored against it and sorted, with the reasons shown.'}</p>
     <RankingArt />
   </section>
 }
@@ -85,7 +86,7 @@ export default function HrLogin() {
         <button className="hr-btn hr-btn--primary hr-btn--block" type="submit" disabled={busy || demoBusy || !email.trim() || !password}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
-        <p className="hr-login-switch">New to Resumetrics Hiring? <Link to="/hr/register">Create an HR account</Link></p>
+        <p className="hr-login-switch">New to {BRAND.hiring}? <Link to="/hr/register">Create an HR account</Link></p>
         <div className="hr-login-demo">
           <button className="hr-btn hr-btn--ghost hr-btn--block" type="button" onClick={openDemo} disabled={busy || demoBusy}>{demoBusy ? 'Opening the demo…' : 'Explore the demo'}</button>
           <span>A private sample workspace on Hiring Pro, with made-up candidates, just for you. It is deleted after 24 hours or when you sign out.</span>
