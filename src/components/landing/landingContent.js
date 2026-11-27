@@ -38,7 +38,7 @@ export const advantages = ['Never invents facts', 'Proof from your code', 'One-c
 // The HR portal (/hr), in plain words for the "For hiring teams" section.
 export const hiringPoints = [
   ['Read every file', 'Drop in the PDF, DOCX or TXT resumes you received. Each one is read into the same sections, whatever its layout.'],
-  ['Score and sort', 'Every resume gets a score out of 100 for skills, experience, education and keywords from your job post, with the best fit on top.'],
+  ['Score and sort', 'Every resume gets a score out of 100 for keywords, experience, skills, education and completeness against your job post, with the best fit on top.'],
   ['Compare at a glance', 'A chart and a ranked list show your strongest candidates first, with the reasons for each score.'],
   ['Shortlist and export', 'Shortlist or reject in a click, hide names for fair screening, and download the shortlist.']
 ]

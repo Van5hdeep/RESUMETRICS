@@ -100,7 +100,8 @@ try {
   const detail = await call('GET', `/openings/${openingId}`, { token })
   assert.deepEqual(detail.body.candidates.map(row => row.name), ['Asha Rao', 'Ben Ito'])
   assert.equal(detail.body.opening.candidateCount, 2)
-  assert.ok(detail.body.weights.skills > detail.body.weights.experience)
+  assert.ok(detail.body.weights.keywords > detail.body.weights.experience)
+  assert.ok(detail.body.weights.experience > detail.body.weights.skills)
   assert.deepEqual(detail.body.candidates.map(row => row.status), ['new', 'new'])
   assert.deepEqual(detail.body.candidates.map(row => row.serial), [1, 2])
   assert.match(detail.body.candidates[0].why, /^Meets all 3 must-haves/)
@@ -143,13 +144,26 @@ try {
   assert.match(exportResponse.headers.get('content-disposition'), /frontend-developer-shortlist\.csv/)
   const csv = (await exportResponse.text()).replace(/^﻿/, '').trim().split('\r\n')
   assert.equal(csv.length, 3)
-  assert.match(csv[0], /^Rank,Name,Email,Phone,Headline,Overall score,Skills,Experience,Keywords,Must-haves met/)
+  assert.match(csv[0], /^Rank,Name,Email,Phone,Headline,Overall score,Keywords,Experience,Skills,Completeness,Must-haves met/)
   assert.match(csv[1], /^1,Asha Rao,asha@example.com/)
   assert.match(csv[2], /^2,"'=Cara ""CJ"" Jones",cara@example.com/)
 
   // Settings: custom weights re-rank (keywords only), blind mode hides the best name in the list, bad weights refused.
   const weighted = await call('PATCH', `/openings/${openingId}/settings`, { token, body: { weights: { skills: 0, experience: 0, education: 0, keywords: 100 } } })
-  assert.deepEqual(weighted.body.weights, { skills: 0, experience: 0, keywords: 100 })
+  assert.deepEqual(weighted.body.weights, { keywords: 100, experience: 0, skills: 0, completeness: 0 })
+
+  // Screening: the pass threshold and knockouts are saved and decide each resume's group; bad values are refused.
+  const screened = await call('PATCH', `/openings/${openingId}/settings`, { token, body: { threshold: 80, knockouts: { mustHave: true } } })
+  assert.equal(screened.body.opening.threshold, 80)
+  assert.deepEqual(screened.body.opening.knockouts, { minYears: false, mustHave: true })
+  assert.equal((await call('PATCH', `/openings/${openingId}/settings`, { token, body: { threshold: 20 } })).status, 400)
+  assert.equal((await call('PATCH', `/openings/${openingId}/settings`, { token, body: { knockouts: 'all' } })).status, 400)
+  const screenedRows = (await call('GET', `/openings/${openingId}`, { token })).body.candidates
+  assert.ok(screenedRows.every(row => typeof row.ats.score === 'number' && ['ranked', 'below', 'ats'].includes(row.group) && row.threshold === 80))
+  const benRow = screenedRows.find(row => row.name === 'Ben Ito')
+  assert.notEqual(benRow.group, 'ranked')
+  if (benRow.group === 'below') assert.equal(benRow.knockouts[0].id, 'mustHave')
+  await call('PATCH', `/openings/${openingId}/settings`, { token, body: { threshold: 65, knockouts: { mustHave: false } } })
   assert.equal((await call('PATCH', `/openings/${openingId}/settings`, { token, body: { weights: { skills: 0, experience: 0, education: 0, keywords: 0 } } })).status, 400)
   assert.equal((await call('PATCH', `/openings/${openingId}/settings`, { token, body: { weights: { skills: 500 } } })).status, 400)
   assert.equal((await call('PATCH', `/openings/${openingId}/settings`, { token, body: {} })).status, 400)

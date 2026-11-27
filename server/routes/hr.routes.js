@@ -265,7 +265,7 @@ export function createHrRouter({
     }
   })
 
-  // Blind mode, custom weights, open/closed.
+  // Blind mode, custom weights, pass threshold and knockouts, open/closed.
   router.patch('/openings/:openingId/settings', small, async (request, response) => {
     try {
       const opening = await store.updateOpeningSettings(request.hrUser.id, request.params.openingId, request.body ?? {})

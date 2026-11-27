@@ -1,9 +1,24 @@
 // Scores a resume against one HR job opening. Wraps the deterministic resume ↔ job scoring in
 // shared/jdScoring.js and weights it for hiring. Used by the server (rankings) and documented in the portal.
+//
+// The match follows the usual ATS model: a weighted score (keywords 40–50%, experience 20–25%, skills 15–20%,
+// education 5–15%, section completeness 5–10%), a pass threshold (commonly 60–70%), and optional knockouts that
+// screen a resume out whatever its score. Readability comes first and is a separate check: shared/atsStandard.js.
 import { scoreResumeAgainstJd, textHasTerm, resumeTextParts } from './jdScoring.js'
+import { atsSummary, evaluateAts, sectionCompleteness } from './atsStandard.js'
 
-export const HR_WEIGHTS = Object.freeze({ skills: 50, experience: 30, education: 10, keywords: 10 })
-export const HR_CATEGORY_LABELS = Object.freeze({ skills: 'Skills', experience: 'Experience', education: 'Education', keywords: 'Keywords' })
+// Key order is the order categories are shown in.
+export const HR_WEIGHTS = Object.freeze({ keywords: 40, experience: 25, skills: 20, education: 10, completeness: 5 })
+export const HR_CATEGORY_LABELS = Object.freeze({ keywords: 'Keywords', experience: 'Experience', skills: 'Skills', education: 'Education', completeness: 'Completeness' })
+
+/** Match score a resume needs to join the main ranking, unless the opening sets its own (40–90). */
+export const HR_THRESHOLD = 65
+export const HR_THRESHOLD_RANGE = Object.freeze({ min: 40, max: 90 })
+/** Knockouts screen a resume out whatever its score. Both are off unless the opening turns them on. */
+export const HR_KNOCKOUTS = Object.freeze({
+  minYears: 'Below the minimum years of experience',
+  mustHave: 'Missing a must-have skill'
+})
 
 export const HR_BANDS = Object.freeze([
   { id: 'strong', label: 'Strong', min: 75 },
@@ -51,7 +66,7 @@ export const STATUS_LABELS = Object.freeze({ new: 'New', shortlisted: 'Shortlist
  */
 export function validateWeights(input) {
   if (input === null || input === undefined) return null
-  if (typeof input !== 'object') throw new Error('Weights must be numbers for skills, experience, education and keywords.')
+  if (typeof input !== 'object') throw new Error('Weights must be numbers for keywords, experience, skills, education and completeness.')
   const weights = {}
   for (const key of Object.keys(HR_WEIGHTS)) {
     const value = Number(input[key] ?? 0)
@@ -80,6 +95,36 @@ export function weightsFor(opening = {}) {
 }
 
 const strip = value => String(value ?? '').replace(/\[\/?[bius]\]/g, '').replace(/\s+/g, ' ').trim()
+
+/** The opening's pass threshold: its own when set and in range, else HR_THRESHOLD. */
+export function thresholdFor(opening = {}) {
+  const value = Number(opening.threshold)
+  return Number.isFinite(value) && value >= HR_THRESHOLD_RANGE.min && value <= HR_THRESHOLD_RANGE.max ? Math.round(value) : HR_THRESHOLD
+}
+
+/** Which knockouts the opening uses: { minYears, mustHave }, each true or false. */
+export function knockoutsFor(opening = {}) {
+  const source = opening.knockouts && typeof opening.knockouts === 'object' ? opening.knockouts : {}
+  return Object.fromEntries(Object.keys(HR_KNOCKOUTS).map(key => [key, source[key] === true]))
+}
+
+/**
+ * Threshold and knockouts from the opening page: { threshold?, knockouts? } → the cleaned values. Throws a message HR
+ * can read when a value can't be used.
+ */
+export function validateScreening(input = {}) {
+  const settings = {}
+  if (input.threshold !== undefined) {
+    const value = Number(input.threshold)
+    if (!Number.isFinite(value) || value < HR_THRESHOLD_RANGE.min || value > HR_THRESHOLD_RANGE.max) throw new Error(`The pass threshold must be between ${HR_THRESHOLD_RANGE.min} and ${HR_THRESHOLD_RANGE.max}.`)
+    settings.threshold = Math.round(value)
+  }
+  if (input.knockouts !== undefined) {
+    if (!input.knockouts || typeof input.knockouts !== 'object') throw new Error('Knockouts are a set of on/off switches.')
+    settings.knockouts = Object.fromEntries(Object.keys(HR_KNOCKOUTS).map(key => [key, input.knockouts[key] === true]))
+  }
+  return settings
+}
 
 /** Every line of a resume with where it came from, for showing the evidence behind a matched skill. */
 function resumeLines(resume = {}) {
@@ -136,6 +181,8 @@ export function scoreCandidate(resume = {}, opening = {}, { now = new Date() } =
   const jd = openingToJd(opening)
   const base = scoreResumeAgainstJd(resume, jd, { now })
   const weights = weightsFor(opening)
+  const completeness = sectionCompleteness(resume)
+  base.categories.completeness = { score: completeness, matched: [], missing: [], notes: [`Sections and entries are ${completeness}% complete: contact details, summary, core sections, and full job and education entries.`] }
   const score = Math.round(Object.entries(weights).reduce((sum, [key, weight]) => sum + (base.categories[key]?.score ?? 0) * weight, 0) / 100)
   const text = resumeTextParts(resume).all
   const lines = resumeLines(resume)
@@ -156,13 +203,44 @@ export function scoreCandidate(resume = {}, opening = {}, { now = new Date() } =
     years: base.years,
     minYears: jd.yearsExperience
   }
-  return { ...result, band: bandOf(result.score), why: whyLine(result) }
+  return { ...result, band: bandOf(result.score), why: whyLine(result), screening: screen(result, opening) }
+}
+
+/**
+ * Threshold and knockouts for one scored resume:
+ * { threshold, passed, knockouts: [{ id, label, detail }], qualifies } — qualifies when it passes and nothing knocks it out.
+ */
+export function screen(result, opening = {}) {
+  const threshold = thresholdFor(opening)
+  const use = knockoutsFor(opening)
+  const knockouts = []
+  if (use.minYears && result.minYears && result.years < result.minYears) knockouts.push({ id: 'minYears', label: HR_KNOCKOUTS.minYears, detail: `${result.years} years against ${result.minYears}+ asked` })
+  const missing = result.mustHave.items.filter(item => !item.found).map(item => item.term)
+  if (use.mustHave && missing.length) knockouts.push({ id: 'mustHave', label: HR_KNOCKOUTS.mustHave, detail: `Missing ${missing.slice(0, 3).join(', ')}${missing.length > 3 ? ` and ${missing.length - 3} more` : ''}` })
+  const passed = result.score >= threshold
+  return { threshold, passed, knockouts, qualifies: passed && knockouts.length === 0 }
+}
+
+/**
+ * Where a resume belongs in an opening: 'ats' (failed the readability check, so not evaluated against the job),
+ * 'below' (scored, but under the threshold or knocked out) or 'ranked' (the main ranking).
+ */
+export function groupOf(ats, screening) {
+  if (ats && !ats.qualified) return 'ats'
+  return screening.qualifies ? 'ranked' : 'below'
+}
+
+/** The candidate's stored ATS result, or one worked out from the resume alone for uploads made before it was kept. */
+export function candidateAts(candidate = {}) {
+  if (candidate.ats && typeof candidate.ats.score === 'number') return { ...candidate.ats, fileChecked: true }
+  return { ...atsSummary(evaluateAts(candidate.resumeData ?? {})), fileChecked: false }
 }
 
 /** The compact row the ranked table, chart and filters use. `serial` is the upload order (1 = first uploaded). */
 export function candidateSummary(candidate, opening, options) {
   const result = scoreCandidate(candidate.resumeData, opening, options)
   const resume = candidate.resumeData ?? {}
+  const ats = candidateAts(candidate)
   return {
     id: candidate.id,
     serial: candidate.serial ?? null,
@@ -183,6 +261,11 @@ export function candidateSummary(candidate, opening, options) {
     mustHaveMet: result.mustHave.met,
     mustHaveTotal: result.mustHave.total,
     missingMustHave: result.mustHave.items.filter(item => !item.found).map(item => item.term),
+    ats,
+    threshold: result.screening.threshold,
+    passedThreshold: result.screening.passed,
+    knockouts: result.screening.knockouts,
+    group: groupOf(ats, result.screening),
     // Every skill on the resume, for search by skill.
     skills: [...new Set(Object.values(resume.skills ?? {}).flat().map(strip).filter(Boolean))].slice(0, 60),
     years: result.years
