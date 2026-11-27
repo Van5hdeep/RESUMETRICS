@@ -62,3 +62,4 @@ dashboard-integration-snippet.txt
 
 # Local launch-video output
 brag-output/
+.env*

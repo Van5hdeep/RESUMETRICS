@@ -5,5 +5,6 @@
     { "name": "api", "runtimeExecutable": "npm", "runtimeArgs": ["run", "server"], "port": 8787 },
     { "name": "shots", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "--config", "scripts/landing-shots/vite.config.js"], "port": 5198 },
     { "name": "shots-alt", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "--config", "scripts/landing-shots/vite.config.js", "--port", "5199", "--strictPort"], "port": 5199 }
+    ,{ "name": "preview", "runtimeExecutable": "npx", "runtimeArgs": ["vite", "preview", "--port", "4173", "--strictPort"], "port": 4173 }
   ]
 }

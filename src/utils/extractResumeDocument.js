@@ -1,6 +1,8 @@
 import mammoth from 'mammoth/mammoth.browser.js'
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
-import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'
+// Bundled through Vite's worker pipeline so it ships as a .js file: some hosts serve
+// .mjs as application/octet-stream, which browsers refuse to run as a module.
+import pdfWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?worker&url'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
