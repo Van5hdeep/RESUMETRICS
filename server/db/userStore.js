@@ -42,7 +42,7 @@ export function validateSettingsPatch(patch) {
   return clean
 }
 
-const PLAN_TERMS = ['monthly', 'yearly', 'lifetime']
+const PLAN_TERMS = ['monthly', 'yearly', 'lifetime', 'demo']
 
 /** Only known fields with known values; payment ids and anything else stored on the plan stay on the server. */
 export function publicPlan(plan) {
@@ -70,7 +70,7 @@ export function createUserStore({ getDb = getConnectionStore, now = () => Date.n
     const ref = getDb().collection('users').doc(uid)
     const snapshot = await ref.get()
     const profile = {
-      displayName: firebaseUser.name || firebaseUser.email?.split('@')[0] || 'User',
+      displayName: firebaseUser.name || firebaseUser.email?.split('@')[0] || (firebaseUser.demo === true ? 'Demo user' : 'User'),
       email: firebaseUser.email || '',
       photoURL: firebaseUser.picture || ''
     }

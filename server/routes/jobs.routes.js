@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { env } from '../config/env.js'
 import { usageDay } from '../ai/usage.js'
+import { NO_DAILY_REQUEST_CAP } from '../ai/allowance.js'
 import { RESUME_ID, ResumeStoreError, resumeStore } from '../db/resumeStore.js'
 import { JOB_KEY, JobStoreError, jobStore } from '../db/jobStore.js'
 import { JobSearchError, WEB_BOARDS, boardLabel, buildRows, cacheKeyOf, jobSearch, mergeBoardRow } from '../jobs/jobSearch.js'
@@ -20,7 +21,9 @@ function fail(response, error, fallback) {
 
 export function createJobsRouter({ jobs = jobStore, resumes = resumeStore, search = jobSearch, perDay = env.jobs.searchesPerDay, day = () => usageDay() } = {}) {
   const router = Router()
-  const searchesLeft = state => perDay - (state.day === day() && Number.isInteger(state.searches) ? state.searches : 0)
+  // Demo accounts (server/services/workspaceDemo.js) have no daily search cap.
+  const limitFor = request => (request.firebaseUser?.demo === true ? NO_DAILY_REQUEST_CAP : perDay)
+  const searchesLeft = (state, limit = perDay) => limit - (state.day === day() && Number.isInteger(state.searches) ? state.searches : 0)
 
   router.param('key', (request, response, next, key) => {
     if (!JOB_KEY.test(key)) return response.status(400).json({ ok: false, code: 'invalid', error: 'Invalid job id.' })
@@ -32,7 +35,8 @@ export function createJobsRouter({ jobs = jobStore, resumes = resumeStore, searc
     try {
       const state = await jobs.getState(request.firebaseUser.uid)
       response.set('Cache-Control', 'no-store')
-      return response.json({ ok: true, search: state.lastSearch ?? null, searchesLeft: searchesLeft(state), searchesPerDay: perDay })
+      const limit = limitFor(request)
+      return response.json({ ok: true, search: state.lastSearch ?? null, searchesLeft: searchesLeft(state, limit), searchesPerDay: limit })
     } catch (error) {
       return fail(response, error, 'Could not load your job search')
     }
@@ -50,15 +54,15 @@ export function createJobsRouter({ jobs = jobStore, resumes = resumeStore, searc
       let left = null
       const cached = Boolean(raw)
       if (!raw) {
-        left = await jobs.takeSearch(uid, day(), perDay)
+        left = await jobs.takeSearch(uid, day(), limitFor(request))
         raw = await search.fetchFresh(profile)
       }
       // The boards in pendingBoards load next, one request each (POST /boards/:platform), and join these rows.
       const pendingBoards = search.availableBoards()
       const result = plain({ resumeId, resumeName: resume.name, profile, rows: buildRows(profile, raw), failures: raw.failures ?? [], pendingBoards, cached, searchedAt: new Date().toISOString() })
       await jobs.saveLastSearch(uid, result).catch(error => console.error('Last job search could not be kept:', error?.message))
-      if (left === null) left = searchesLeft(await jobs.getState(uid))
-      return response.json({ ok: true, search: result, searchesLeft: left, searchesPerDay: perDay })
+      if (left === null) left = searchesLeft(await jobs.getState(uid), limitFor(request))
+      return response.json({ ok: true, search: result, searchesLeft: left, searchesPerDay: limitFor(request) })
     } catch (error) {
       return fail(response, error, 'Could not search for jobs')
     }

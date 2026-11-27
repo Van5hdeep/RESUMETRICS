@@ -3,10 +3,14 @@ import { isProPlan } from '../../shared/plans.js'
 import { userStore } from '../db/userStore.js'
 
 const CACHE_MS = 60_000
+/** "No daily cap" as numbers the limiters and JSON can carry (Infinity becomes null in JSON). */
+export const NO_DAILY_REQUEST_CAP = 1_000_000
+export const NO_DAILY_TOKEN_CAP = Number.MAX_SAFE_INTEGER
 
-/** 'free' | 'pro' | 'lifetime' for a users/{uid}.plan value. Lifetime covers the developer accounts too. */
+/** 'free' | 'pro' | 'lifetime' | 'demo' for a users/{uid}.plan value. Lifetime covers the developer accounts too. */
 export function tierOf(plan, now = Date.now()) {
   if (!isProPlan(plan, now)) return 'free'
+  if (plan.term === 'demo') return 'demo'
   return plan.term === 'lifetime' ? 'lifetime' : 'pro'
 }
 
@@ -14,6 +18,8 @@ export function tierOf(plan, now = Date.now()) {
 export function allowanceFor(tier, config = env) {
   if (tier === 'pro') return config.allowances.pro
   if (tier === 'lifetime') return config.allowances.lifetime
+  // Demo accounts are for testing: no daily caps, and the lifetime per-minute limit against floods.
+  if (tier === 'demo') return { perMinute: config.allowances.lifetime.perMinute, perDay: NO_DAILY_REQUEST_CAP, dailyTokens: NO_DAILY_TOKEN_CAP }
   return { perMinute: config.limits.userAiPerMinute, perDay: config.limits.userAiPerDay, dailyTokens: config.usage.userDailyTokens }
 }
 

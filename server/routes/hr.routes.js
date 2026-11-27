@@ -7,6 +7,7 @@ import { createHrAuth, DEMO_EMAIL, DEMO_PROFILE, demoIdFor, HR_DEMO_MS, HR_SESSI
 import { checkHrDetails, checkNewPassword } from '../../shared/hrRegistration.js'
 import { HR_DOC_ID, HrStoreError, hrStore, openingFullError } from '../db/hrStore.js'
 import { createUserAiLimits } from '../middleware/limits.js'
+import { NO_DAILY_REQUEST_CAP, NO_DAILY_TOKEN_CAP } from '../ai/allowance.js'
 import { createFirestoreRateLimitStore } from '../middleware/persistentRateLimit.js'
 import { createDailyTokenBudget, trackAiUsageFor } from '../ai/usage.js'
 import demoFixture from '../hr/demoFixture.json' with { type: 'json' }
@@ -44,6 +45,10 @@ function fail(response, error, fallback) {
   return response.status(500).json({ ok: false, code: 'server', error: `${fallback}. Please try again.` })
 }
 
+/** Daily AI allowance for an HR account: none for demo workspaces (testing and showing the portal). */
+export const hrDailyTokens = request => (request.hrUser?.demo ? NO_DAILY_TOKEN_CAP : env.hr.dailyTokens)
+export const hrDailyRequests = request => (request.hrUser?.demo ? NO_DAILY_REQUEST_CAP : env.limits.userAiPerDay)
+
 /** Reads one resume: the AI extractor first, the basic text parser when the AI fails. A busy AI is reported, not hidden. */
 async function readResume(document) {
   try {
@@ -66,8 +71,10 @@ export function createHrRouter({
   store = hrStore,
   auth = createHrAuth(),
   read = readResume,
-  aiLimits = createUserAiLimits({ perMinute: env.limits.userAiPerMinute, perDay: env.limits.userAiPerDay, keyOf: request => request.hrUser.id }),
-  aiBudget = createDailyTokenBudget({ keyOf: request => request.hrUser.id, allowance: request => (request.hrUser.demo ? env.hr.demoDailyTokens : env.hr.dailyTokens) }),
+  // Demo workspaces are for testing and showing the portal, so they have no daily AI allowance (only the per-minute
+  // limit, so one tab can't flood the AI provider).
+  aiLimits = createUserAiLimits({ perMinute: env.limits.userAiPerMinute, perDay: hrDailyRequests, keyOf: request => request.hrUser.id }),
+  aiBudget = createDailyTokenBudget({ keyOf: request => request.hrUser.id, allowance: hrDailyTokens }),
   limits = {},
   limitStore = name => createFirestoreRateLimitStore({ prefix: name }),
   demo = { enabled: env.hr.demoEnabled, fixture: demoFixture, profile: DEMO_PROFILE },

@@ -1,3 +1,4 @@
+import { NO_DAILY_REQUEST_CAP } from '../server/ai/allowance.js'
 import assert from 'node:assert/strict'
 import express from 'express'
 import { buildSearchProfile, experienceFit, formatPay, jobIdentity, platformOf, relatedRoles, roleFromResume, scoreJob, titleFit } from '../shared/jobMatch.js'
@@ -334,12 +335,14 @@ assert.equal(validateSavedJob({ title: 'x', url: 'https://a', logo: 'http://inse
 // Routes behind sign-in and requirePro.
 db.seed('users/pro', { plan: { tier: 'pro', status: 'active', term: 'lifetime' } })
 db.seed('users/free', { plan: { tier: 'free', status: 'active' } })
+// A workspace demo account: Pro until it ends, and its token carries demo: true (server/services/workspaceDemo.js).
+db.seed('users/demo_test', { plan: { tier: 'pro', status: 'active', term: 'demo', currentPeriodEnd: '2099-01-01T00:00:00Z' } })
 const resumes = createResumeStore({ getDb: () => db, timestamp: db.timestamp, checkpointMs: Infinity })
 const RESUME = 'a1b2c3d4-e5f6-4789-8abc-def012345678'
 await resumes.saveResume('pro', RESUME, { baseRevision: null, fields: { name: 'Main', templateId: 'onyx', data: resume, presentation: {} } })
 const users = { getPlan: async uid => db.read(`users/${uid}`)?.plan ?? null }
 const app = express()
-app.use('/api/jobs', (request, _response, next) => { request.firebaseUser = { uid: request.get('x-uid') }; next() }, createRequirePro({ feature: 'jobTracker', users }), express.json(),
+app.use('/api/jobs', (request, _response, next) => { const uid = request.get('x-uid'); request.firebaseUser = { uid, ...(uid.startsWith('demo_') ? { demo: true } : {}) }; next() }, createRequirePro({ feature: 'jobTracker', users }), express.json(),
   createJobsRouter({ jobs, resumes, search: createJobSearch({ store: jobs, config, fetchImpl: fakeFetch }), perDay: 2, day: () => '2026-10-14' }))
 const server = await new Promise(resolve => { const listening = app.listen(0, '127.0.0.1', () => resolve(listening)) })
 const call = async (method, path, { uid = 'pro', body } = {}) => {
@@ -383,6 +386,10 @@ try {
   assert.equal(limited.status, 429)
   assert.equal(limited.body.code, 'limit')
   assert.equal((await call('GET', '/latest')).body.search.profile.role, 'Designer', 'the last results are kept')
+  // Demo accounts have no daily search cap.
+  const demoLatest = (await call('GET', '/latest', { uid: 'demo_test' })).body
+  assert.equal(demoLatest.searchesPerDay, NO_DAILY_REQUEST_CAP)
+  assert.equal(demoLatest.searchesLeft, NO_DAILY_REQUEST_CAP)
 
   const card = first.body.search.rows[0].jobs[0]
   const saved = await call('PUT', `/saved/${card.key}`, { body: { job: { ...card, resumeId: RESUME } } })
