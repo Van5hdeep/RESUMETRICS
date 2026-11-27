@@ -1,5 +1,9 @@
 import { Router } from 'express'
+import { rateLimit } from 'express-rate-limit'
 import { createRequireUser } from '../services/firebaseAdmin.js'
+import { workspaceDemos } from '../services/workspaceDemo.js'
+import { createFirestoreRateLimitStore } from '../middleware/persistentRateLimit.js'
+import { env } from '../config/env.js'
 import { RESUME_ID, ResumeStoreError, resumeStore } from '../db/resumeStore.js'
 import { evidenceStore } from '../db/evidenceStore.js'
 import { SettingsError, userStore } from '../db/userStore.js'
@@ -30,8 +34,32 @@ function fail(response, error, fallback) {
   return response.status(500).json({ ok: false, code: 'server', error: `${fallback}.` })
 }
 
-export function createUserRouter({ resumes = resumeStore, users = userStore, evidence = evidenceStore, authenticate = requireAccount } = {}) {
+/** Demo accounts one network may open in an hour (the counts live in Firestore, so they hold across instances). */
+export const DEMOS_PER_HOUR = 5
+const demoLimiterFor = store => rateLimit({
+  windowMs: 60 * 60_000,
+  limit: DEMOS_PER_HOUR,
+  ...(store ? { store } : {}),
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: (_request, response) => response.status(429).json({ ok: false, code: 'rate_limited', error: 'Too many demo workspaces from your network. Try again in an hour.' })
+})
+
+export function createUserRouter({ resumes = resumeStore, users = userStore, evidence = evidenceStore, authenticate = requireAccount, demos = workspaceDemos, demoEnabled = env.workspaceDemo.enabled, demoStore = createFirestoreRateLimitStore({ prefix: 'workspace-demo' }) } = {}) {
   const router = Router()
+
+  // "Try the demo": a private demo account for this visitor alone, with every Pro feature and no daily AI allowance,
+  // deleted after a day. Expired demos are swept first, so they don't pile up.
+  router.post('/demo', demoLimiterFor(demoStore), async (_request, response) => {
+    if (!demoEnabled) return response.status(404).json({ ok: false, code: 'not_found', error: 'The demo is not available.' })
+    try {
+      await demos.sweepExpired().catch(error => console.error('Expired demo workspaces could not be removed:', error?.message))
+      const { token, expiresAt } = await demos.create()
+      return response.status(201).json({ ok: true, token, expiresAt })
+    } catch (error) {
+      return fail(response, error, 'Could not open a demo workspace')
+    }
+  })
 
   router.use(authenticate, async (request, response, next) => {
     try {

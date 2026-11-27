@@ -3,7 +3,7 @@ import { usePlan } from '../context/PlanContext.jsx'
 import './plan.css'
 import { BRAND } from '../../shared/brand.js'
 
-const TERM_LABELS = { monthly: 'Monthly', yearly: 'Yearly', lifetime: 'Lifetime' }
+const TERM_LABELS = { monthly: 'Monthly', yearly: 'Yearly', lifetime: 'Lifetime', demo: 'Demo, no limits' }
 
 /** Settings → Account: which plan this account is on, with the way to change it. */
 export default function SubscriptionBlock() {
@@ -11,8 +11,9 @@ export default function SubscriptionBlock() {
   const { loading, pro, plan, resumes } = usePlan()
   if (loading) return null
   const renews = plan?.currentPeriodEnd ? new Date(plan.currentPeriodEnd).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+  const ends = plan?.currentPeriodEnd ? new Date(plan.currentPeriodEnd).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : ''
   const detail = pro
-    ? [plan?.term === 'lifetime' ? 'Lifetime access, no renewals' : renews ? `Renews on ${renews}` : 'Active', plan?.source === 'developer' && 'Developer access'].filter(Boolean).join(' · ')
+    ? [plan?.term === 'lifetime' ? 'Lifetime access, no renewals' : plan?.term === 'demo' ? `Demo workspace, deleted ${ends || 'after 24 hours'}` : renews ? `Renews on ${renews}` : 'Active', plan?.source === 'developer' && 'Developer access'].filter(Boolean).join(' · ')
     : `${resumes?.limit ? `${Math.min(resumes.used, resumes.limit)} of ${resumes.limit} free resumes used · ` : ''}Job tailoring and the job tracker need Pro`
   return <div className="settings-block">
     <span className="settings-block-title">Subscription</span>

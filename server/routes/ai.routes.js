@@ -43,6 +43,7 @@ router.get('/usage', requireUser, async (request, response) => {
     tokens,
     tier: allowance.tier,
     dailyTokenAllowance: allowance.dailyTokens,
+    unlimited: allowance.tier === 'demo',
     remainingTokens: Math.max(0, allowance.dailyTokens - tokens),
     resetsInSeconds: secondsUntilNextDay()
   })

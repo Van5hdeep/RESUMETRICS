@@ -131,11 +131,16 @@ export const env = Object.freeze({
     cacheHours: positiveInt('RESUMETRICS_JOB_CACHE_HOURS', 6)
   }),
   // HR portal (server/routes/hr.routes.js). Daily AI allowance per HR account, in tokens (one resume is roughly
-  // 10-30k), a smaller one for demo workspaces, and whether "Explore the demo" is offered (RESUMETRICS_HR_DEMO=0 turns it off).
+  // 10-30k), and whether "Explore the demo" is offered (RESUMETRICS_HR_DEMO=0 turns it off). Demo workspaces have no
+  // daily allowance.
   hr: Object.freeze({
     dailyTokens: positiveInt('RESUMETRICS_HR_DAILY_TOKENS', 200_000),
-    demoDailyTokens: positiveInt('RESUMETRICS_HR_DEMO_DAILY_TOKENS', 40_000),
     demoEnabled: process.env.RESUMETRICS_HR_DEMO?.trim() !== '0'
+  }),
+  // "Try the demo" in the resume workspace: a private demo account with Pro features and no daily AI allowance,
+  // deleted after a day (server/services/workspaceDemo.js). RESUMETRICS_WORKSPACE_DEMO=0 turns it off.
+  workspaceDemo: Object.freeze({
+    enabled: process.env.RESUMETRICS_WORKSPACE_DEMO?.trim() !== '0'
   }),
   // Number of reverse proxies in front of the server (e.g. 1 on Cloud Run or Render), so rate limits see real client IPs.
   trustProxy: Math.max(0, Number.parseInt(process.env.RESUMETRICS_TRUST_PROXY ?? '0', 10) || 0)

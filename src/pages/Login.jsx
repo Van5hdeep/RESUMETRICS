@@ -66,7 +66,8 @@ export function ApprovalStamp() {
 export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { signInWithGoogle, isConfigured } = useAuth()
+  const { signInWithGoogle, signInAsDemo, isConfigured } = useAuth()
+  const [demoLoading, setDemoLoading] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [authStage, setAuthStage] = useState('idle')
@@ -104,6 +105,21 @@ export default function Login() {
     }
   }
 
+  // A private demo account with every Pro feature and no AI limits, deleted after a day.
+  const handleDemo = async () => {
+    setError('')
+    setDemoLoading(true)
+    try {
+      await signInAsDemo()
+      setAuthStage('approving')
+    } catch (demoError) {
+      console.error('Demo sign-in failed:', demoError)
+      setError(demoError?.message || 'The demo could not be opened. Please try again.')
+    } finally {
+      setDemoLoading(false)
+    }
+  }
+
   return <main className={`login-page login-page--${authStage}`}>
     <div className="login-hero">
       <ResumeShowcaseArt />
@@ -122,6 +138,11 @@ export default function Login() {
             {loading ? <span className="login-spinner" aria-hidden="true" /> : <GoogleMark />}
             {loading ? 'Signing in…' : 'Continue with Google'}
           </button>
+          <button className="login-button login-button--demo" type="button" onClick={handleDemo} disabled={loading || demoLoading || !isConfigured}>
+            {demoLoading ? <span className="login-spinner" aria-hidden="true" /> : null}
+            {demoLoading ? 'Opening the demo…' : 'Try the demo'}
+          </button>
+          <p className="login-demo-note">A private demo workspace with every Pro feature and no AI limits. No sign-up; it’s deleted after 24 hours.</p>
           <p className="login-note">New to {BRAND.name}? Signing in with Google creates your workspace.</p>
           <ul className="login-assurances">
             <li>Your password stays with Google</li>

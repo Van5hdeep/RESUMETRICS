@@ -58,6 +58,9 @@ export function getConnectionStore() {
   return getFirestore(initializeFirebaseAdmin())
 }
 
+/** True when a verified Firebase token belongs to a workspace demo whose day is over (server/services/workspaceDemo.js). */
+export const isExpiredDemo = (decodedToken, now = Date.now()) => decodedToken?.demo === true && !(Number(decodedToken.demoExpiresAt) > now)
+
 /**
  * Express middleware: verifies the Firebase ID token in `Authorization: Bearer …` and sets request.firebaseUser.
  * Each route group passes its own messages so the person knows what needs signing in. `verify` is swappable for tests.
@@ -69,6 +72,7 @@ export function createRequireUser({ signInMessage, unavailableMessage, verify = 
 
     try {
       request.firebaseUser = await verify(token)
+      if (isExpiredDemo(request.firebaseUser)) return response.status(401).json({ ok: false, code: 'demo_ended', error: 'This demo has ended. Start a new one from the sign-in page.' })
       return next()
     } catch (error) {
       if (error instanceof FirebaseServerConfigurationError) {

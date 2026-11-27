@@ -18,4 +18,5 @@ export const getAuth = () => auth
 export const onAuthStateChanged = (_auth, callback) => { setTimeout(() => callback(user), 0); return () => {} }
 export class GoogleAuthProvider { addScope() {} }
 export const signInWithPopup = async () => ({ user })
+export const signInWithCustomToken = async () => ({ user })
 export const signOut = async () => {}
