@@ -35,4 +35,23 @@ const noEducation = scoreResumeAgainstJd(resume, { ...jd, education: null }, { n
 assert.equal(noEducation.categories.education, undefined)
 assert.equal(noEducation.categories.skills.weight + noEducation.categories.experience.weight, 100)
 assert.equal(result.score, Math.round(result.categories.skills.score * .6 + result.categories.experience.score * .4))
+// Degree levels read whole words only: a diploma is not an M.A., and "to be completed" is not a B.E.
+const educationScore = (degree, education = "Bachelor's degree in any discipline") => scoreResumeAgainstJd({ education: [{ degree }] }, { title: 'Personal Assistant', mustHave: [], niceToHave: [], education }).categories.education.score
+assert.equal(educationScore('Diploma in Office Administration'), 50)
+assert.equal(educationScore('Higher Secondary Certificate (HSC)'), 0)
+assert.equal(educationScore('12th, to be completed'), 0)
+for (const degree of ['BBA', 'B.Com', 'B.A. Psychology', 'B.E. Mechanical', 'BCA', 'Bachelor of Arts', 'MBA']) assert.equal(educationScore(degree), 100, degree)
+assert.equal(educationScore('B.Com', 'Master’s degree'), 50)
+assert.equal(educationScore('MBA', 'Master’s degree'), 100)
+// Languages and custom sections are read: English listed only under Languages still meets an English must-have.
+const languagesOnly = scoreResumeAgainstJd({ languages: ['English', 'Hindi'], customSections: [{ title: 'Volunteering', content: 'Event coordination for an NGO' }] }, { title: 'Personal Assistant', mustHave: ['English', 'Event coordination'], niceToHave: ['Hindi'] })
+assert.deepEqual(languagesOnly.categories.skills.matched, ['English', 'Event coordination', 'Hindi'])
+// Non-tech skills match the ways resumes write them, and ordinary words don't count as skills.
+assert.equal(textHasTerm('Planned domestic and international travel for 30 trips a year', 'Travel arrangements'), true)
+assert.equal(textHasTerm('Kept the CFO calendar in Google Workspace and avoided clashes', 'Calendar management'), false)   // a calendar mentioned, not managed
+assert.equal(textHasTerm('Managed the director’s diary and site visit schedule', 'Calendar management'), true)
+assert.equal(textHasTerm('Took minutes of meeting at monthly board meetings', 'Minutes of meeting'), true)
+assert.equal(textHasTerm('Proficient in Microsoft Office', 'MS Office'), true)
+assert.equal(textHasTerm('I would like a word with you', 'MS Word'), false)
+assert.equal(textHasTerm('Handled confidential financial documents', 'Confidentiality'), true)
 console.log('jdScoring: all checks passed')

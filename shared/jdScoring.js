@@ -1,6 +1,7 @@
 // Deterministic, explainable resume ↔ job description scoring. Shared by server (first analysis) and
 // client (instant re-score after a fix is executed). Category weights are shown in the UI.
 import { knownSkillsIn } from './roleAnalysis.js'
+import { generalSkillsIn } from './generalSkills.js'
 
 export const CATEGORY_WEIGHTS = { skills: 60, experience: 40 }
 export const CATEGORY_LABELS = { skills: 'Skills', experience: 'Experience', keywords: 'Keywords', education: 'Education', structure: 'Structure' }
@@ -20,7 +21,9 @@ export function resumeTextParts(resume = {}) {
   const experienceText = experience.map(item => [item?.role, item?.company, ...list(item?.bullets)].join(' ')).join('\n')
   const projectText = projects.map(item => [item?.name, item?.description, ...list(item?.techStack), ...list(item?.bullets)].join(' ')).join('\n')
   const educationText = list(resume.education).map(item => [item?.degree, item?.institution, ...list(item?.details)].join(' ')).join('\n')
-  const all = stripMarks([resume.headline, resume.summary, skills.join(', '), experienceText, projectText, educationText, list(resume.certifications).join(' '), list(resume.achievements).join(' ')].join('\n'))
+  // Languages and the person's own sections count too: "English" listed only under Languages is still English.
+  const customText = list(resume.customSections).map(section => [section?.title, section?.content].join(' ')).join('\n')
+  const all = stripMarks([resume.headline, resume.summary, skills.join(', '), experienceText, projectText, educationText, list(resume.certifications).join(' '), list(resume.achievements).join(' '), list(resume.languages).join(', '), customText].join('\n'))
   return { all, bullets, skills, experienceText: stripMarks(experienceText), projectText: stripMarks(projectText), educationText: stripMarks(educationText), summary: stripMarks(resume.summary) }
 }
 
@@ -30,6 +33,12 @@ export function textHasTerm(text, term) {
   if (known.length) {
     const inText = new Set(knownSkillsIn(text).map(skill => skill.toLowerCase()))
     if (known.some(skill => inText.has(skill.toLowerCase()))) return true
+  }
+  // Office, admin, languages and other non-tech skills, by the ways people write them ("managed the MD's calendar").
+  const general = generalSkillsIn(term)
+  if (general.length) {
+    const inText = new Set(generalSkillsIn(text))
+    if (general.some(skill => inText.has(skill))) return true
   }
   const clean = String(term ?? '').trim()
   if (!clean) return false
@@ -61,10 +70,12 @@ export function yearsOfExperience(resume = {}, now = new Date()) {
 
 const degreeLevel = text => {
   const value = String(text ?? '').toLowerCase()
-  if (/ph\.?\s?d|doctor/.test(value)) return 4
-  if (/master|m\.?\s?(s|sc|tech|eng|a|ba)\b|mba/.test(value)) return 3
-  if (/bachelor|b\.?\s?(s|sc|tech|e|eng|a|com|ca)\b|undergrad|degree/.test(value)) return 2
-  if (/diploma|associate/.test(value)) return 1
+  // Abbreviations only count as whole words ("Diploma" is not an M.A.); a bare B.E./M.E. needs its dot, so the word
+  // "be" in "to be completed" is not a degree.
+  if (/ph\.?\s?d\b|\bdoctor(ate)?\b/.test(value)) return 4
+  if (/\bmasters?\b|\bm\.?\s?(s|sc|tech|eng|a|com|ca|ba|phil)\b|\bm\.e\b|\bmba\b|\bpgdm\b|\bpost[\s-]?graduat/.test(value)) return 3
+  if (/\bbachelors?\b|\bbachelor['’]s\b|\bb\.?\s?(s|sc|tech|eng|a|com|ca|ba|ms|pharm|arch|des|ed)\b|\bb\.e\b|\bbba\b|\bbms\b|\bbca\b|\bundergrad|\bgraduat(e|ion)\b|\bdegree\b/.test(value)) return 2
+  if (/\bdiploma\b|\bassociate\b/.test(value)) return 1
   return 0
 }
 

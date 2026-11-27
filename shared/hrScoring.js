@@ -126,6 +126,15 @@ export function validateScreening(input = {}) {
   return settings
 }
 
+/** How many times a term appears in the text (whole words, any case). */
+function countTerm(text, term) {
+  const clean = String(term ?? '').trim().toLowerCase()
+  if (!clean) return 0
+  const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const pattern = new RegExp(`(^|[^a-z0-9+#])${escaped}(?=$|[^a-z0-9+#])`, 'g')
+  return (String(text ?? '').toLowerCase().match(pattern) ?? []).length
+}
+
 /** Every line of a resume with where it came from, for showing the evidence behind a matched skill. */
 function resumeLines(resume = {}) {
   const lines = []
@@ -183,7 +192,9 @@ export function scoreCandidate(resume = {}, opening = {}, { now = new Date() } =
   const weights = weightsFor(opening)
   const completeness = sectionCompleteness(resume)
   base.categories.completeness = { score: completeness, matched: [], missing: [], notes: [`Sections and entries are ${completeness}% complete: contact details, summary, core sections, and full job and education entries.`] }
-  const score = Math.round(Object.entries(weights).reduce((sum, [key, weight]) => sum + (base.categories[key]?.score ?? 0) * weight, 0) / 100)
+  // The exact weighted score is kept for tie-breaks; the total shown has one decimal, so near-ties stay apart.
+  const exact = Math.max(0, Math.min(100, Object.entries(weights).reduce((sum, [key, weight]) => sum + (base.categories[key]?.score ?? 0) * weight, 0) / 100))
+  const score = Math.round(exact * 10) / 10
   const text = resumeTextParts(resume).all
   const lines = resumeLines(resume)
   const check = terms => terms.map(term => {
@@ -194,12 +205,16 @@ export function scoreCandidate(resume = {}, opening = {}, { now = new Date() } =
   const niceToHave = check(jd.niceToHave)
   const categories = Object.fromEntries(Object.keys(weights).map(key => [key, { ...base.categories[key], weight: weights[key] }]))
   const result = {
-    score: Math.max(0, Math.min(100, score)),
+    score,
+    exact,
     weights,
     categories,
     mustHave: { items: mustHave, met: mustHave.filter(item => item.found).length, total: mustHave.length },
     niceToHave: { items: niceToHave, met: niceToHave.filter(item => item.found).length, total: niceToHave.length },
     keywords: base.keywords,
+    // Finer detail for tie-breaks: how often the job's terms appear, and how many bullets show a number.
+    depth: [...jd.mustHave, ...jd.niceToHave, ...jd.keywords].reduce((sum, term) => sum + countTerm(text, term), 0),
+    quantified: [...(resume.experience ?? []), ...(resume.projects ?? [])].flatMap(item => item?.bullets ?? []).filter(bullet => /d/.test(String(bullet))).length,
     years: base.years,
     minYears: jd.yearsExperience
   }
@@ -258,8 +273,12 @@ export function candidateSummary(candidate, opening, options) {
     band: result.band.id,
     why: result.why,
     categories: Object.fromEntries(Object.entries(result.categories).map(([key, value]) => [key, value.score])),
+    exact: result.exact,
     mustHaveMet: result.mustHave.met,
     mustHaveTotal: result.mustHave.total,
+    niceMet: result.niceToHave.met,
+    depth: result.depth,
+    quantified: result.quantified,
     missingMustHave: result.mustHave.items.filter(item => !item.found).map(item => item.term),
     ats,
     threshold: result.screening.threshold,
@@ -290,7 +309,57 @@ export function candidatesCsv(rows, weights) {
   return [header.map(quote).join(','), ...lines].join('\r\n')
 }
 
-/** Highest score first; ties by name. */
-export function rankCandidates(summaries) {
-  return [...summaries].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+/**
+ * What decides between two resumes, in order, when their totals match: each step compares finer detail until one is
+ * ahead. The last step (uploaded first) only matters when every detail is the same; the same file or the same email
+ * can't be uploaded twice, so that is two different people with word-for-word the same fit.
+ */
+function tieBreaks(weights) {
+  const categoryKeys = Object.entries(weights).sort((a, b) => b[1] - a[1]).map(([key]) => key)
+  return [
+    { id: 'exact', reason: 'a higher exact score', value: row => row.exact ?? row.score },
+    { id: 'mustHave', reason: 'more must-have skills', value: row => row.mustHaveMet ?? 0 },
+    ...categoryKeys.map(key => ({ id: key, reason: `a higher ${HR_CATEGORY_LABELS[key]} score`, value: row => row.categories?.[key] ?? 0 })),
+    { id: 'niceToHave', reason: 'more nice-to-have skills', value: row => row.niceMet ?? 0 },
+    { id: 'years', reason: 'more years of experience', value: row => row.years ?? 0 },
+    { id: 'ats', reason: 'a higher ATS score', value: row => row.ats?.score ?? 0 },
+    { id: 'depth', reason: 'more mentions of the job’s terms', value: row => row.depth ?? 0 },
+    { id: 'quantified', reason: 'more results shown with numbers', value: row => row.quantified ?? 0 },
+    { id: 'serial', reason: 'being uploaded first', value: row => -(row.serial ?? Number.MAX_SAFE_INTEGER) }
+  ]
+}
+
+/**
+ * Orders two candidate rows: negative when `a` is the better fit. Never returns 0 for two different rows, so every
+ * resume in an opening has its own place. `weights` orders the category steps (heaviest first).
+ */
+export function compareCandidates(a, b, weights = null) {
+  const steps = tieBreaks(weights ?? Object.fromEntries(Object.keys(a.categories ?? {}).map((key, index, keys) => [key, keys.length - index])))
+  if (b.score !== a.score) return b.score - a.score
+  for (const step of steps) {
+    const difference = step.value(b) - step.value(a)
+    if (difference) return difference
+  }
+  return String(a.id ?? '').localeCompare(String(b.id ?? ''))
+}
+
+/** Why the first of two rows with the same total is ahead of the second, e.g. "more must-have skills"; null when the totals differ. */
+export function tieBreakReason(a, b, weights = null) {
+  if (a.score !== b.score) return null
+  const steps = tieBreaks(weights ?? Object.fromEntries(Object.keys(a.categories ?? {}).map((key, index, keys) => [key, keys.length - index])))
+  return steps.find(step => step.value(a) !== step.value(b))?.reason ?? 'its upload order'
+}
+
+/**
+ * Best fit first, every resume in its own place. A row whose total equals the next row's says what put it ahead
+ * (`aheadOn`), and that next row says what put it behind (`behindOn`).
+ */
+export function rankCandidates(summaries, weights = null) {
+  const ranked = [...summaries].sort((a, b) => compareCandidates(a, b, weights)).map((row, index) => ({ ...row, rank: index + 1, aheadOn: null, behindOn: null }))
+  ranked.forEach((row, index) => {
+    const next = ranked[index + 1]
+    const reason = next && tieBreakReason(row, next, weights)
+    if (reason) { row.aheadOn = reason; next.behindOn = reason }
+  })
+  return ranked
 }

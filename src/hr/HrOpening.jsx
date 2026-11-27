@@ -69,10 +69,12 @@ function useUploadQueue(openingId, onScored, blindRef) {
   return { items, add, clearFinished, busy: items.some(item => !FINISHED.includes(item.status)) }
 }
 
+// The server ranks every resume into its own place (shared/hrScoring.js compareCandidates); sorting by score keeps that order.
+const byRank = (a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity)
 const SORTS = {
-  score: (a, b) => b.score - a.score || a.name.localeCompare(b.name),
+  score: byRank,
   name: (a, b) => a.name.localeCompare(b.name),
-  years: (a, b) => b.years - a.years || b.score - a.score
+  years: (a, b) => b.years - a.years || byRank(a, b)
 }
 
 /** Filters shared by the chart and the table. In blind mode, search never matches a hidden name. */
@@ -292,7 +294,7 @@ export default function HrOpening() {
                 <td className="hr-col-check" onClick={event => event.stopPropagation()}><input type="checkbox" aria-label={`Select ${displayName(row, blind)}`} checked={selected.has(row.id)} onChange={() => toggle(row.id)} /></td>
                 <td className="hr-num hr-rank">{ranks.get(row.id)}</td>
                 <td><b>{displayName(row, blind)}</b><span className="hr-sub">{row.headline || (isHidden(row, blind) ? '' : row.fileName)}</span></td>
-                <td><ScoreMark score={row.score} size="sm" /></td>
+                <td><ScoreMark score={row.score} size="sm" />{(row.aheadOn || row.behindOn) && <span className="hr-tiebreak" title="Same total: the tie-break decided the order">{row.aheadOn ? `Ahead on ${row.aheadOn}` : `Behind on ${row.behindOn}`}</span>}</td>
                 <td><StatusBadge status={row.status} />{row.reason && <span className="hr-sub" title={row.reason}>{row.reason.length > 28 ? `${row.reason.slice(0, 27)}…` : row.reason}</span>}</td>
                 {Object.keys(weights).map(key => <td key={key} className="hr-col-meter"><Meter value={row.categories[key]} label={HR_CATEGORY_LABELS[key]} /><span className="hr-meter-num">{row.categories[key]}</span></td>)}
                 <td className="hr-num">{row.mustHaveMet}/{row.mustHaveTotal}</td>
