@@ -58,8 +58,14 @@ export default function HrOpeningForm() {
     const taken = new Set(mustHave.map(item => item.toLowerCase()))
     const niceToHave = [...form.niceToHave, ...read.niceToHave.filter(item => !taken.has(item.toLowerCase()) && !form.niceToHave.some(other => other.toLowerCase() === item.toLowerCase()))].slice(0, 20)
     const added = mustHave.length - form.mustHave.length + niceToHave.length - form.niceToHave.length
-    setForm(current => ({ ...current, mustHave, niceToHave, title: current.title || read.title || '' }))
-    setPulled(added ? `Added ${added} requirement${added === 1 ? '' : 's'} from the description. Check them before saving.` : 'No new requirements found in the description.')
+    // Years and education are filled only when HR left them empty; what HR typed is never overwritten.
+    const years = !String(form.minYears).trim() && read.yearsExperience ? String(read.yearsExperience) : null
+    const education = !form.education.trim() && read.education ? read.education : null
+    setForm(current => ({ ...current, mustHave, niceToHave, title: current.title || read.title || '', ...(years ? { minYears: years } : {}), ...(education ? { education } : {}) }))
+    const also = [years && `${years}+ years of experience`, education && 'the education requirement'].filter(Boolean)
+    const parts = [added && `${added} requirement${added === 1 ? '' : 's'}`, ...also].filter(Boolean)
+    const listed = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0]
+    setPulled(parts.length ? `Added ${listed} from the description. Check them before saving.` : 'No new requirements found in the description.')
   }
 
   const submit = async event => {

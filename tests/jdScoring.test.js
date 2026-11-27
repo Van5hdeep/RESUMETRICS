@@ -46,4 +46,12 @@ assert.equal(educationScore('MBA', 'Master’s degree'), 100)
 // Languages and custom sections are read: English listed only under Languages still meets an English must-have.
 const languagesOnly = scoreResumeAgainstJd({ languages: ['English', 'Hindi'], customSections: [{ title: 'Volunteering', content: 'Event coordination for an NGO' }] }, { title: 'Personal Assistant', mustHave: ['English', 'Event coordination'], niceToHave: ['Hindi'] })
 assert.deepEqual(languagesOnly.categories.skills.matched, ['English', 'Event coordination', 'Hindi'])
+// Non-tech skills match the ways resumes write them, and ordinary words don't count as skills.
+assert.equal(textHasTerm('Planned domestic and international travel for 30 trips a year', 'Travel arrangements'), true)
+assert.equal(textHasTerm('Kept the CFO calendar in Google Workspace and avoided clashes', 'Calendar management'), false)   // a calendar mentioned, not managed
+assert.equal(textHasTerm('Managed the director’s diary and site visit schedule', 'Calendar management'), true)
+assert.equal(textHasTerm('Took minutes of meeting at monthly board meetings', 'Minutes of meeting'), true)
+assert.equal(textHasTerm('Proficient in Microsoft Office', 'MS Office'), true)
+assert.equal(textHasTerm('I would like a word with you', 'MS Word'), false)
+assert.equal(textHasTerm('Handled confidential financial documents', 'Confidentiality'), true)
 console.log('jdScoring: all checks passed')

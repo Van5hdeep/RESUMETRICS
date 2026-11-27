@@ -1,6 +1,7 @@
 // Deterministic, explainable resume ↔ job description scoring. Shared by server (first analysis) and
 // client (instant re-score after a fix is executed). Category weights are shown in the UI.
 import { knownSkillsIn } from './roleAnalysis.js'
+import { generalSkillsIn } from './generalSkills.js'
 
 export const CATEGORY_WEIGHTS = { skills: 60, experience: 40 }
 export const CATEGORY_LABELS = { skills: 'Skills', experience: 'Experience', keywords: 'Keywords', education: 'Education', structure: 'Structure' }
@@ -32,6 +33,12 @@ export function textHasTerm(text, term) {
   if (known.length) {
     const inText = new Set(knownSkillsIn(text).map(skill => skill.toLowerCase()))
     if (known.some(skill => inText.has(skill.toLowerCase()))) return true
+  }
+  // Office, admin, languages and other non-tech skills, by the ways people write them ("managed the MD's calendar").
+  const general = generalSkillsIn(term)
+  if (general.length) {
+    const inText = new Set(generalSkillsIn(text))
+    if (general.some(skill => inText.has(skill))) return true
   }
   const clean = String(term ?? '').trim()
   if (!clean) return false
