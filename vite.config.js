@@ -12,6 +12,8 @@ const securityHeaders = {
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // pdf.js loads its worker as an ES module (new Worker(url, { type: 'module' })).
+  worker: { format: 'es' },
   server: {
     headers: securityHeaders,
     proxy: {
