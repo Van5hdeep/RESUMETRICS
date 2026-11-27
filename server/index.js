@@ -1,5 +1,5 @@
-import cors from 'cors'
 import express from 'express'
+import { createOriginGuard } from './middleware/originGuard.js'
 import { env } from './config/env.js'
 import aiRoutes from './routes/ai.routes.js'
 import { createGitHubRouter } from './routes/github.routes.js'
@@ -24,35 +24,10 @@ setUsageStore(createResilientUsageStore(createFirestoreUsageStore(), createMemor
 const app = express()
 app.disable('x-powered-by')
 app.use(securityHeaders)
+// Pages that may call the API: RESUMETRICS_WEB_ORIGIN, the site this server answers on, and localhost in development
+// (server/middleware/originGuard.js).
 const allowedOrigins = env.webOrigin.split(',').map(origin => origin.trim()).filter(Boolean)
-const allowsLocalDevelopment = allowedOrigins.some(origin => {
-  try {
-    const url = new URL(origin)
-    return url.hostname === 'localhost' || url.hostname === '127.0.0.1'
-  } catch {
-    return false
-  }
-})
-
-function isAllowedOrigin(origin) {
-  if (allowedOrigins.includes(origin)) return true
-  if (!allowsLocalDevelopment) return false
-
-  try {
-    const url = new URL(origin)
-    return url.protocol === 'http:' && (url.hostname === 'localhost' || url.hostname === '127.0.0.1')
-  } catch {
-    return false
-  }
-}
-
-// A page on another site gets no CORS headers (so its browser can't read our answers) and a plain 403, not a 500.
-const corsForAllowed = cors()
-app.use((request, response, next) => {
-  const origin = request.get('origin')
-  if (!origin || isAllowedOrigin(origin)) return corsForAllowed(request, response, next)
-  return response.status(403).json({ ok: false, code: 'origin', error: `This site is not allowed to call the ${BRAND.name} API.` })
-})
+app.use(createOriginGuard({ allowedOrigins, message: `This site is not allowed to call the ${BRAND.name} API.` }))
 // Behind a hosting proxy, rate limits must see the client's address, not the proxy's (RESUMETRICS_TRUST_PROXY hops).
 app.set('trust proxy', env.trustProxy)
 
