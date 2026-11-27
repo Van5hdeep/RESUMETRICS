@@ -35,4 +35,15 @@ const noEducation = scoreResumeAgainstJd(resume, { ...jd, education: null }, { n
 assert.equal(noEducation.categories.education, undefined)
 assert.equal(noEducation.categories.skills.weight + noEducation.categories.experience.weight, 100)
 assert.equal(result.score, Math.round(result.categories.skills.score * .6 + result.categories.experience.score * .4))
+// Degree levels read whole words only: a diploma is not an M.A., and "to be completed" is not a B.E.
+const educationScore = (degree, education = "Bachelor's degree in any discipline") => scoreResumeAgainstJd({ education: [{ degree }] }, { title: 'Personal Assistant', mustHave: [], niceToHave: [], education }).categories.education.score
+assert.equal(educationScore('Diploma in Office Administration'), 50)
+assert.equal(educationScore('Higher Secondary Certificate (HSC)'), 0)
+assert.equal(educationScore('12th, to be completed'), 0)
+for (const degree of ['BBA', 'B.Com', 'B.A. Psychology', 'B.E. Mechanical', 'BCA', 'Bachelor of Arts', 'MBA']) assert.equal(educationScore(degree), 100, degree)
+assert.equal(educationScore('B.Com', 'Master’s degree'), 50)
+assert.equal(educationScore('MBA', 'Master’s degree'), 100)
+// Languages and custom sections are read: English listed only under Languages still meets an English must-have.
+const languagesOnly = scoreResumeAgainstJd({ languages: ['English', 'Hindi'], customSections: [{ title: 'Volunteering', content: 'Event coordination for an NGO' }] }, { title: 'Personal Assistant', mustHave: ['English', 'Event coordination'], niceToHave: ['Hindi'] })
+assert.deepEqual(languagesOnly.categories.skills.matched, ['English', 'Event coordination', 'Hindi'])
 console.log('jdScoring: all checks passed')

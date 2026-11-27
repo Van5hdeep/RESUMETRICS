@@ -212,7 +212,7 @@ export function createHrRouter({
     }
   })
 
-  const rankedFor = async (hrId, opening) => rankCandidates((await store.listCandidates(hrId, opening.id)).map(candidate => candidateSummary(candidate, opening)))
+  const rankedFor = async (hrId, opening) => rankCandidates((await store.listCandidates(hrId, opening.id)).map(candidate => candidateSummary(candidate, opening)), weightsFor(opening))
   const countBy = (rows, status) => rows.filter(row => row.status === status).length
 
   // Openings with their resume counts, best match and decision pipeline, for the overview and the list.

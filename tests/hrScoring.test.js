@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { bandOf, candidateAts, candidatesCsv, candidateSummary, groupOf, HR_THRESHOLD, knockoutsFor, rankCandidates, scoreCandidate, screen, thresholdFor, validateScreening, validateWeights, weightsFor } from '../shared/hrScoring.js'
+import { bandOf, compareCandidates, tieBreakReason, candidateAts, candidatesCsv, candidateSummary, groupOf, HR_THRESHOLD, knockoutsFor, rankCandidates, scoreCandidate, screen, thresholdFor, validateScreening, validateWeights, weightsFor } from '../shared/hrScoring.js'
 import { isHrPro, openingsLeft } from '../shared/hrPlans.js'
 
 const now = new Date(2026, 10, 1)
@@ -134,6 +134,36 @@ assert.equal(summaryRow.group, 'ranked')
 assert.equal(summaryRow.ats.score, 91)
 assert.equal(summaryRow.threshold, 65)
 assert.equal(candidateSummary({ id: 'b', resumeData: strong, fileName: 'asha.pdf', ats: { score: 40, qualified: false, failed: [] } }, opening, { now }).group, 'ats')
+
+// Totals keep one decimal; the exact score is kept for tie-breaks.
+assert.equal(good.score, Math.round(good.exact * 10) / 10)
+
+// No two resumes share a place. Same total: the cascade compares finer and finer detail and says why.
+const row = (id, over) => ({ id, name: id, score: 70, exact: 70, mustHaveMet: 3, niceMet: 1, years: 3, depth: 10, quantified: 2, serial: 1, ats: { score: 90 }, categories: { keywords: 70, experience: 70, skills: 70, completeness: 80 }, ...over })
+const tied = rankCandidates([row('a', {}), row('b', { mustHaveMet: 4 })])
+assert.deepEqual(tied.map(item => [item.id, item.rank]), [['b', 1], ['a', 2]])
+assert.equal(tied[0].aheadOn, 'more must-have skills')
+assert.equal(tied[1].behindOn, 'more must-have skills')
+// Weights decide which category is compared first: the heaviest.
+const byWeight = (weights) => tieBreakReason(row('x', { categories: { keywords: 71, experience: 69, skills: 70, completeness: 80 } }), row('y', { categories: { keywords: 69, experience: 71, skills: 70, completeness: 80 } }), weights)
+assert.equal(byWeight({ keywords: 40, experience: 25 }), 'a higher Keywords score')
+assert.equal(byWeight({ keywords: 10, experience: 60 }), 'a higher Experience score')
+// Down the cascade: years, ATS score, mentions of the job's terms, quantified results, then upload order.
+assert.equal(tieBreakReason(row('a', { years: 5 }), row('b', {})), 'more years of experience')
+assert.equal(tieBreakReason(row('a', { ats: { score: 95 } }), row('b', {})), 'a higher ATS score')
+assert.equal(tieBreakReason(row('a', { depth: 11 }), row('b', {})), 'more mentions of the job’s terms')
+assert.equal(tieBreakReason(row('a', { quantified: 3 }), row('b', {})), 'more results shown with numbers')
+const identical = rankCandidates([row('late', { serial: 2 }), row('early', { serial: 1 })])
+assert.deepEqual(identical.map(item => item.id), ['early', 'late'])
+assert.equal(identical[0].aheadOn, 'being uploaded first')
+// A higher total always wins, whatever the detail; different totals carry no tie note.
+const apart = rankCandidates([row('a', { score: 70.1, mustHaveMet: 0 }), row('b', { score: 70.2 })])
+assert.deepEqual(apart.map(item => item.id), ['b', 'a'])
+assert.equal(apart[0].aheadOn, null)
+// Across a mixed batch every pair is ordered (never 0) and every place is taken once.
+const batch = Array.from({ length: 30 }, (_, index) => row(`r${index}`, { score: 60 + (index % 4), mustHaveMet: index % 3, years: index % 5, serial: index + 1 }))
+for (const first of batch) for (const second of batch) if (first !== second) assert.notEqual(compareCandidates(first, second), 0)
+assert.deepEqual(rankCandidates(batch).map(item => item.rank), Array.from({ length: 30 }, (_, index) => index + 1))
 
 // Plans
 assert.equal(isHrPro({ tier: 'pro', status: 'active' }), true)
