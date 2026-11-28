@@ -3,6 +3,7 @@
 // failure, so one slow or broken source never takes another down (server/jobs/jobSearch.js).
 import { platformOf, titleFit } from '../../shared/jobMatch.js'
 import { ContextDevError, scrapeJson } from '../integrations/contextDev.js'
+import { ALL_INDIA, placeNamesFor } from '../../shared/indiaLocations.js'
 
 // JSearch sometimes takes 20–30 s and a listing page 15–40 s; each stays inside the 60 s serverless limit (vercel.json),
 // and a listing page has its own request (server/routes/jobs.routes.js), so they never add up.
@@ -109,8 +110,10 @@ export function postingFromSlug(url, locationHint = '') {
   slug = slug.replace(/^job-listings-/, '').replace(/[-_]?\d{6,}$/, '').replace(/\.html?$/, '')
   const years = slug.match(/-(\d{1,2})-to-(\d{1,2})-years?/)
   let words = slug.replace(/-\d{1,2}-to-\d{1,2}-years?.*$/, '').split(/[-_]+/).filter(Boolean)
-  const city = locationHint.toLowerCase().split(/[\s,]+/)[0]
-  const cityAt = city ? words.lastIndexOf(city) : -1
+  const hints = [...new Set([String(locationHint).toLowerCase().split(/[\s,]+/)[0], ...placeNamesFor(locationHint).filter(name => !name.includes(' '))].filter(Boolean))]
+  const found = hints.map(name => ({ name, at: words.lastIndexOf(name) })).filter(item => item.at > 0).sort((a, b) => b.at - a.at)[0]
+  const cityAt = found ? found.at : -1
+  const city = found?.name ?? ''
   const location = cityAt > 0 ? titleCase(city) : ''
   if (cityAt > 0) words = words.slice(0, cityAt)
   const text = words.join(' ')
@@ -173,7 +176,9 @@ const DAYS = { today: 1, '3days': 3, week: 7, month: 30 }
 /** The board's own search page for this role, place and date range. */
 export function boardListingUrl(platform, { role, location = '', remote = false, datePosted = 'month' }) {
   const roleSlug = slugOf(role)
-  const city = slugOf(String(location).split(',')[0])
+  // A state ("Maharashtra") or, from older searches, a city; nothing for all of India.
+  const place = String(location).split(',')[0].trim()
+  const city = place && place !== ALL_INDIA ? slugOf(place) : ''
   const days = DAYS[datePosted]
   if (platform === 'naukri') {
     const url = new URL(remote ? `https://www.naukri.com/${roleSlug}-jobs` : `https://www.naukri.com/${roleSlug}-jobs${city ? `-in-${city}` : ''}`)
@@ -184,7 +189,7 @@ export function boardListingUrl(platform, { role, location = '', remote = false,
   if (platform === 'indeed') {
     const url = new URL('https://in.indeed.com/jobs')
     url.searchParams.set('q', role)
-    url.searchParams.set('l', remote ? 'Remote' : String(location))
+    url.searchParams.set('l', remote ? 'Remote' : place || ALL_INDIA)
     if (days) url.searchParams.set('fromage', String(days))
     return url.href
   }

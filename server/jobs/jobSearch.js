@@ -13,6 +13,10 @@ import { PLATFORMS, formatPay, jobIdentity, relatedRoles, scoreJob } from '../..
 import { jobKeyOf, jobStore } from '../db/jobStore.js'
 import { JobSourceError, TAVILY_SITES, estimateSalary, readBoardListing, searchJSearch, searchTavily } from './sources.js'
 import { searchCompanyFeeds } from './companyFeeds.js'
+import { ALL_INDIA, citiesOf } from '../../shared/indiaLocations.js'
+
+/** Where a salary median is looked up: the state's main city (Glassdoor reports by city), else India. */
+export const salaryPlaceOf = profile => (profile.remote || profile.location === ALL_INDIA ? ALL_INDIA : citiesOf(profile.location, 1)[0] ?? profile.location)
 
 /** Boards read one at a time after the main search: the job boards' listing pages, and employers' own job feeds. */
 export const WEB_BOARDS = Object.freeze([...Object.keys(TAVILY_SITES), 'company'])
@@ -82,7 +86,7 @@ export function salaryFor(job, salaries = {}, profile) {
   const company = job.company ? salaries.companies?.[companyKey(job.company)] : null
   if (company) return { text: formatPay({ min: company.median, period: company.period }), kind: 'company', note: `Typical pay for a ${profile.role} at ${job.company} (${company.source} median)` }
   const market = salaries.market
-  if (market) return { text: formatPay({ min: market.median, period: market.period }), kind: 'market', note: `Typical pay for a ${profile.role} in ${profile.location} (${market.source} median${market.count ? ` of ${market.count.toLocaleString('en-IN')} salaries` : ''})` }
+  if (market) return { text: formatPay({ min: market.median, period: market.period }), kind: 'market', note: `Typical pay for a ${profile.role} in ${salaryPlaceOf(profile)} (${market.source} median${market.count ? ` of ${market.count.toLocaleString('en-IN')} salaries` : ''})` }
   return null
 }
 
@@ -170,7 +174,8 @@ export function createJobSearch({ store = jobStore, config = env.jobs, fetchImpl
 
   /** The market median for the role here, and medians for the best-matching companies that don't list pay. */
   async function estimateSalaries(profile, jobs, web) {
-    const location = profile.remote ? 'India' : `${profile.location}, India`
+    const place = salaryPlaceOf(profile)
+    const location = place === ALL_INDIA ? ALL_INDIA : `${place}, India`
     const ranked = [...jobs.filter(job => !job.pay && !job.payText).map(job => ({ company: job.company, score: scoreJob(profile, job).score })), ...web.map(item => ({ company: item.company, score: 0 }))]
       .filter(item => item.company)
       .sort((a, b) => b.score - a.score)

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePlan } from '../context/PlanContext.jsx'
 import { deleteSavedJob, getLatestJobSearch, listResumes, listSavedJobs, loadJobBoard, saveJob, searchJobs, updateSavedJob } from '../utils/userApi.js'
-import { JOB_STATUSES, PLATFORMS, PLATFORM_NAMES, buildSearchProfile, jobIdentity } from '../../shared/jobMatch.js'
+import { FIT, JOB_STATUSES, PLATFORMS, PLATFORM_NAMES, buildSearchProfile, jobIdentity, splitByFit } from '../../shared/jobMatch.js'
+import { ALL_INDIA, COUNTRIES, INDIA_STATES, searchLocationOf, stateNear } from '../../shared/indiaLocations.js'
 import './jobs.css'
 
 // Job tracker (Pro): openings matched to a saved resume, one row per job board, and a board of saved applications.
@@ -45,6 +46,7 @@ const WalletIcon = ({ size = 18 }) => <Svg size={size}><path d="M4 7.5A2.5 2.5 0
 const ClockIcon = ({ size = 18 }) => <Svg size={size}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></Svg>
 const DocIcon = () => <Svg><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h4M9 13h6M9 17h6" /></Svg>
 const ArrowOut = () => <Svg size={15}><path d="M8 16 16 8M9.5 8H16v6.5" /></Svg>
+const LocateIcon = () => <Svg size={17}><circle cx="12" cy="12" r="6.5" /><circle cx="12" cy="12" r="2" fill="currentColor" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" /></Svg>
 const Heart = ({ filled }) => <Svg size={18}><path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10Z" fill={filled ? 'currentColor' : 'none'} /></Svg>
 const Star = () => <Svg size={14}><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5Z" fill="currentColor" /></Svg>
 
@@ -97,9 +99,9 @@ function ScoreRing({ score }) {
   </span>
 }
 
-function JobCard({ job, rowName, saved, highest, onToggleSave }) {
+function JobCard({ job, rowName, saved, highest, reason, onToggleSave }) {
   const tags = [job.type, job.experience].filter(Boolean)
-  return <article className={`job-card${highest ? ' is-highest' : ''}`}>
+  return <article className={`job-card${highest ? ' is-highest' : ''}${reason ? ' is-worth' : ''}`}>
     {highest && <HighestBadge />}
     <header>
       <CompanyLogo job={job} />
@@ -110,6 +112,7 @@ function JobCard({ job, rowName, saved, highest, onToggleSave }) {
       <button type="button" className={`job-save${saved ? ' is-saved' : ''}`} aria-pressed={saved} aria-label={saved ? `Remove ${job.title} from saved jobs` : `Save ${job.title}`} title={saved ? 'Saved' : 'Save to My applications'} onClick={() => onToggleSave(job)}><Heart filled={saved} /></button>
     </header>
     <JobFacts job={job} />
+    {reason && <p className="job-worth-reason">{reason}</p>}
     {tags.length > 0 && <ul className="job-tags">{tags.map(tag => <li key={tag}>{tag}</li>)}</ul>}
     <div className="job-fit">
       {job.score !== null
@@ -187,6 +190,28 @@ function PlatformRow({ row, savedKeys, highestKey, onToggleSave }) {
   </section>
 }
 
+/**
+ * Below the best matches: jobs that aren't a perfect fit for the resume but are realistic, each with why it's worth
+ * a look, and the long shots behind "Show more".
+ */
+function WorthATry({ worth, longShots, savedKeys, onToggleSave }) {
+  const [showAll, setShowAll] = useState(false)
+  if (!worth.length && !longShots.length) return null
+  const shown = showAll ? [...worth, ...longShots] : worth
+  return <section className="jobs-worth" aria-labelledby="jobs-worth-title">
+    <header>
+      <h2 id="jobs-worth-title">Worth a try</h2>
+      <p>Not a perfect fit for your resume, but realistic: a related role, or most of the skills with a few to learn.</p>
+    </header>
+    {shown.length > 0 && <div className="jobs-worth-grid">
+      {shown.map(({ job, links, reason }) => <JobCard key={`worth-${job.key}`} job={{ ...job, platform: links[0].platform, url: links[0].url }} rowName={PLATFORM_NAMES[links[0].platform] ?? ''} reason={reason} saved={savedKeys.has(job.key)} onToggleSave={onToggleSave} />)}
+    </div>}
+    {longShots.length > 0 && <button type="button" className="btn btn-secondary btn-sm jobs-worth-more" onClick={() => setShowAll(value => !value)} aria-expanded={showAll}>
+      {showAll ? 'Show fewer' : `Show ${longShots.length} more (long shots under ${FIT.worth}%)`}
+    </button>}
+  </section>
+}
+
 function ApplicationsBoard({ jobs, onStatus, onNotes, onRemove }) {
   const [openNotes, setOpenNotes] = useState(null)
   if (!jobs.length) return <div className="jobs-empty">
@@ -256,7 +281,24 @@ export default function JobTrackerPage() {
   const [saved, setSaved] = useState([])
   const [tab, setTab] = useState('matches')
   const [toast, setToast] = useState('')
+  const [locating, setLocating] = useState(false)
   const started = useRef(false)
+
+  // "Use my location": the browser's position → the nearest listed city's state, worked out here on the device.
+  const locate = () => {
+    if (!('geolocation' in navigator)) { setToast('This browser can’t share your location. Pick your state instead.'); return }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(position => {
+      setLocating(false)
+      const near = stateNear(position.coords.latitude, position.coords.longitude)
+      if (!near) { setToast('Your location looks outside India. Pick a state instead.'); return }
+      setForm(current => ({ ...current, location: near.state }))
+      setToast(`Location set to ${near.state}`)
+    }, failure => {
+      setLocating(false)
+      setToast(failure?.code === 1 ? 'Location access was blocked. Pick your state instead.' : 'Your location couldn’t be found. Pick your state instead.')
+    }, { enableHighAccuracy: false, timeout: 10_000, maximumAge: 10 * 60_000 })
+  }
 
   const prefill = useCallback((resume, keep = {}) => {
     const profile = buildSearchProfile(resume?.data ?? {})
@@ -293,7 +335,7 @@ export default function JobTrackerPage() {
         if (last && lastResume) {
           setSearch(last)
           setResumeId(lastResume.id)
-          setForm({ role: last.profile.role, location: last.profile.location, remote: last.profile.remote, datePosted: last.profile.datePosted })
+          setForm({ role: last.profile.role, location: searchLocationOf(last.profile.location), remote: last.profile.remote, datePosted: last.profile.datePosted })
           setStatus('idle')
           return
         }
@@ -346,10 +388,13 @@ export default function JobTrackerPage() {
 
   const savedKeys = useMemo(() => new Set(saved.map(job => job.key)), [saved])
   // Searches saved before search pages were dropped can hold rows with no jobs.
-  const rows = useMemo(() => (search?.rows ?? []).filter(row => row.jobs?.length), [search])
+  const allRows = useMemo(() => (search?.rows ?? []).filter(row => row.jobs?.length), [search])
+  // Best matches stay in their board rows; the rest split into "Worth a try" and the long shots (shared/jobMatch.js).
+  const { best: rows, worth, longShots } = useMemo(() => splitByFit(allRows, { role: search?.profile?.role ?? '', identity: openingOf }), [allRows, search])
   // One opening can sit in several rows (found on several boards); counts and top picks take it once, by its title
   // and employer (or its key when either is missing).
   const total = useMemo(() => new Set(rows.flatMap(row => row.jobs.map(openingOf))).size, [rows])
+  const found = total + worth.length + longShots.length
   const pendingBoards = search?.pendingBoards ?? []
   // Top picks across boards: each job once, with every board's apply link; the first is the highest match.
   const picks = useMemo(() => {
@@ -431,11 +476,19 @@ export default function JobTrackerPage() {
           <span className="sr-only">Role</span>
           <input value={form.role} maxLength={80} placeholder="Role or job title" disabled={searching} onChange={event => setForm(current => ({ ...current, role: event.target.value }))} />
         </label>
-        <label className="jobs-field">
+        <div className="jobs-field is-location" role="group" aria-label="Location">
           <PinIcon />
-          <span className="sr-only">Location</span>
-          <input value={form.location} maxLength={80} placeholder="City or country" disabled={searching || form.remote} onChange={event => setForm(current => ({ ...current, location: event.target.value }))} />
-        </label>
+          <label className="jobs-country"><span className="sr-only">Country</span>
+            <select value="IN" disabled={searching || form.remote} onChange={() => {}}>{COUNTRIES.map(country => <option key={country.code} value={country.code}>{country.name}</option>)}</select>
+          </label>
+          <label className="jobs-state"><span className="sr-only">State</span>
+            <select value={form.location} disabled={searching || form.remote} onChange={event => setForm(current => ({ ...current, location: event.target.value }))}>
+              <option value={ALL_INDIA}>All of India</option>
+              {INDIA_STATES.map(state => <option key={state} value={state}>{state}</option>)}
+            </select>
+          </label>
+          <button type="button" className="jobs-locate" onClick={locate} disabled={searching || form.remote || locating} aria-label="Use my location (state only)" title="Use my location (state only)">{locating ? <span className="jobs-spinner is-small" aria-hidden="true" /> : <LocateIcon />}</button>
+        </div>
         <button type="submit" className="jobs-go" disabled={!resumeId || searching}>{searching ? <span className="jobs-spinner" aria-hidden="true" /> : <SearchIcon />}<span>{searching ? 'Searching…' : 'Find jobs'}</span></button>
       </form>
       <div className="jobs-options">
@@ -454,7 +507,7 @@ export default function JobTrackerPage() {
     </section>
 
     <div className="jobs-tabs" role="tablist" aria-label="Job tracker">
-      <button type="button" role="tab" aria-selected={tab === 'matches'} className={tab === 'matches' ? 'is-active' : ''} onClick={() => setTab('matches')}>Matches{total ? <span>{total}</span> : null}</button>
+      <button type="button" role="tab" aria-selected={tab === 'matches'} className={tab === 'matches' ? 'is-active' : ''} onClick={() => setTab('matches')}>Matches{found ? <span>{found}</span> : null}</button>
       <button type="button" role="tab" aria-selected={tab === 'applications'} className={tab === 'applications' ? 'is-active' : ''} onClick={() => setTab('applications')}>My applications{saved.length ? <span>{saved.length}</span> : null}</button>
     </div>
 
@@ -474,7 +527,7 @@ export default function JobTrackerPage() {
         {!searching && search && <>
           <div className="jobs-summary">
             <div>
-              <h2>{total} matching job{total === 1 ? '' : 's'} on {rows.length} board{rows.length === 1 ? '' : 's'}</h2>
+              <h2>{total} best match{total === 1 ? '' : 'es'}{rows.length ? ` on ${rows.length} board${rows.length === 1 ? '' : 's'}` : ''}{worth.length ? ` · ${worth.length} worth a try` : ''}</h2>
               <p>Matched on <b>{search.resumeName}</b> · {search.profile.level}{search.profile.years ? `, ${search.profile.years} yrs` : ''}{search.cached ? ' · from a recent search' : ''}</p>
             </div>
             {search.profile.skills.length > 0 && <ul className="jobs-profile-skills" aria-label="Skills used for matching">{search.profile.skills.slice(0, 8).map(skill => <li key={skill}>{skill}</li>)}</ul>}
@@ -488,7 +541,10 @@ export default function JobTrackerPage() {
               <div>{[0, 1, 2].map(card => <i key={card} />)}</div>
             </div>)}
           </div>}
-          {!rows.length && !pendingBoards.length && <div className="jobs-empty"><SearchIcon /><h3>No openings for this search</h3><p>Try a broader role, another city, or a longer date range.</p></div>}
+          {!rows.length && !pendingBoards.length && (worth.length || longShots.length
+            ? <p className="jobs-partial">No strong matches for this search yet. The jobs below are worth a try, or widen the role, state or date range.</p>
+            : <div className="jobs-empty"><SearchIcon /><h3>No openings for this search</h3><p>Try a broader role, another state, or a longer date range.</p></div>)}
+          <WorthATry worth={worth} longShots={longShots} savedKeys={savedKeys} onToggleSave={toggleSave} />
         </>}
       </div>}
     {toast && <p className="jobs-toast" role="status">{toast}</p>}
