@@ -2,6 +2,7 @@
 // on, and how well a posting fits. Deterministic, so it is cheap to run on every result and easy to test.
 import { explicitResumeSkills, knownSkillsIn } from './roleAnalysis.js'
 import { resumeTextParts, textHasTerm, yearsOfExperience } from './jdScoring.js'
+import { ALL_INDIA, searchLocationOf } from './indiaLocations.js'
 
 /** Job boards in the order their rows appear. `company` is the employer's own site; `other` is everything else. */
 export const PLATFORMS = Object.freeze([
@@ -39,10 +40,9 @@ export function roleFromResume(resume = {}) {
   return latestRole || 'Software Developer'
 }
 
-/** First part of "Pune, Maharashtra, India"; remote-only locations fall back to India. */
-export function cityFromResume(resume = {}) {
-  const city = clean(resume.location, 80).split(',')[0]?.trim()
-  return city && !/^remote$/i.test(city) ? city : 'India'
+/** The state the resume's location is in ("Pune, Maharashtra" → Maharashtra); all of India when unknown or remote. */
+export function stateFromResume(resume = {}) {
+  return searchLocationOf(clean(resume.location, 80)) || ALL_INDIA
 }
 
 export const DATE_POSTED = ['all', 'today', '3days', 'week', 'month']
@@ -60,7 +60,8 @@ export function buildSearchProfile(resume = {}, overrides = {}, now = new Date()
   const years = yearsOfExperience(resume, now)
   return {
     role: clean(overrides.role, 80) || roleFromResume(resume),
-    location: clean(overrides.location, 80) || cityFromResume(resume),
+    // A state, or "India" for a nationwide search; an older city value becomes its state.
+    location: clean(overrides.location, 80) ? searchLocationOf(clean(overrides.location, 80)) : stateFromResume(resume),
     remote: overrides.remote === true,
     datePosted: DATE_POSTED.includes(overrides.datePosted) ? overrides.datePosted : 'month',
     skills,
@@ -143,6 +144,47 @@ export function scoreJob(profile, job) {
   const skillFit = jobSkills.length ? (jobSkills.length - missing.length) / jobSkills.length : Math.min(1, matched.length / 4)
   const score = Math.round(100 * (.55 * skillFit + .35 * titleFit(profile.role, job.title) + .1 * experienceFit(profile.years, `${job.qualifications ?? ''}\n${job.description ?? ''}`)))
   return { score: Math.max(0, Math.min(100, score)), matched: matched.slice(0, 8), missing: missing.slice(0, 6) }
+}
+
+/** Scores that make a job a best match, and the lowest score still worth a try. */
+export const FIT = Object.freeze({ best: 60, worth: 35 })
+
+/** Why a job that isn't a best match is still worth a try, in a few words. */
+export function worthReason(job, role = '') {
+  if (job.score === null || job.score === undefined) return 'Not scored: open the posting to check the fit'
+  const parts = []
+  if (job.matched?.length) parts.push(`Matches ${job.matched.length} of your skills`)
+  else parts.push('Few of your skills named')
+  if (role && titleFit(role, job.title) < .5) parts.push('a related role')
+  if (job.missing?.length) parts.push(`missing ${job.missing.slice(0, 2).join(', ')}`)
+  return parts.join(' · ')
+}
+
+/**
+ * Search rows → { best, worth, longShots }. best: the rows with only jobs scoring FIT.best or more (empty rows drop
+ * out). worth: jobs from FIT.worth up to FIT.best, and jobs that couldn't be scored, each opening once with an apply
+ * link per board, best first and unscored last. longShots: the rest, the same way, for "Show more".
+ * `identity(job)` says when two cards are the same opening on different boards.
+ */
+export function splitByFit(rows = [], { role = '', identity = job => jobIdentity(job) || job.key } = {}) {
+  const best = rows.map(row => ({ ...row, jobs: row.jobs.filter(job => job.score !== null && job.score >= FIT.best) })).filter(row => row.jobs.length)
+  const bestIds = new Set(best.flatMap(row => row.jobs.map(identity)))
+  const group = test => {
+    const byOpening = new Map()
+    for (const row of rows) for (const job of row.jobs) {
+      const id = identity(job)
+      if (bestIds.has(id) || !test(job)) continue
+      const entry = byOpening.get(id) ?? byOpening.set(id, { job, links: [] }).get(id)
+      if ((job.score ?? -1) > (entry.job.score ?? -1)) entry.job = job
+      if (!entry.links.some(link => link.platform === job.platform)) entry.links.push({ platform: job.platform, url: job.url })
+    }
+    return [...byOpening.values()]
+      .map(entry => ({ ...entry, reason: worthReason(entry.job, role) }))
+      .sort((a, b) => (b.job.score ?? -1) - (a.job.score ?? -1))
+  }
+  const worth = group(job => job.score === null || (job.score >= FIT.worth && job.score < FIT.best))
+  const longShots = group(job => job.score !== null && job.score < FIT.worth)
+  return { best, worth, longShots }
 }
 
 const oneDecimal = value => String(Math.round(value * 10) / 10)

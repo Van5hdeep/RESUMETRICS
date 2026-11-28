@@ -2,6 +2,7 @@
 // feeds are free, public and exact (no scraping, no credits), so this board costs nothing but a few seconds. The
 // companies are a checked list of employers hiring in India, plus any a web search of those job boards turns up.
 import { relatedRoles, titleFit } from '../../shared/jobMatch.js'
+import { ALL_INDIA, placeNamesFor } from '../../shared/indiaLocations.js'
 
 /** Employers with India openings on each job board, checked by hand: slug → display name. */
 export const COMPANY_FEEDS = Object.freeze({
@@ -15,8 +16,6 @@ export const GREENHOUSE_DETAILS = 12
 /** At most this many employers found by web search are read on top of the checked list. */
 const DISCOVERED_LIMIT = 8
 const DAYS = { today: 1, '3days': 3, week: 7, month: 30 }
-// Cities by their other spellings, so "Bengaluru" finds "Bangalore, KA".
-const CITY_ALIASES = [['bengaluru', 'bangalore'], ['gurugram', 'gurgaon'], ['mumbai', 'bombay'], ['chennai', 'madras'], ['kolkata', 'calcutta'], ['delhi', 'new delhi', 'ncr', 'noida', 'gurugram', 'gurgaon']]
 
 const clean = (value, max = 200) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
 const stripHtml = html => String(html ?? '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&amp;|&#\d+;|&[a-z]+;/g, ' ')
@@ -28,15 +27,15 @@ async function getJson(url, fetchImpl) {
   return response.json()
 }
 
-/** Whether a posting's place fits the search: the city (any spelling), or for remote searches remote work in India. */
+/** Whether a posting's place fits the search: the state (any of its cities, any spelling), or for remote searches remote work in India. */
 export function placeFits(place, { location = '', remote = false }) {
   const text = String(place ?? '').toLowerCase()
   // A bare "Remote" from a global employer is often one country only, so remote openings must name India.
   if (remote) return /remote|anywhere|work from home/.test(text) && /india/.test(text)
-  const city = String(location).split(',')[0].trim().toLowerCase()
-  if (!city || city === 'india') return /india|bengaluru|bangalore|mumbai|pune|hyderabad|gurugram|gurgaon|delhi|noida|chennai|kolkata|ahmedabad/.test(text)
-  const spellings = CITY_ALIASES.find(group => group.includes(city)) ?? [city]
-  return spellings.some(name => text.includes(name))
+  const wanted = String(location).trim()
+  if (!wanted || wanted.toLowerCase() === ALL_INDIA.toLowerCase()) return /india|bengaluru|bangalore|mumbai|pune|hyderabad|gurugram|gurgaon|delhi|noida|chennai|kolkata|ahmedabad/.test(text)
+  const names = placeNamesFor(wanted)
+  return names.some(name => new RegExp(`(^|[^a-z])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`).test(text))
 }
 
 // Words every tech title shares; a title matching only these ("Senior Software Engineer") says nothing about the work.
@@ -98,7 +97,7 @@ const ATS_HOSTS = [[/(^|\.)greenhouse\.io$/, 'greenhouse'], [/^jobs\.lever\.co$/
 /** Employers on these job boards that a web search finds for the role: [{ ats, slug, name }], or [] on any failure. */
 export async function discoverCompanies(profile, { tavilyKey, fetchImpl = fetch } = {}) {
   if (!tavilyKey) return []
-  const where = profile.remote ? 'remote India' : `${profile.location} India`
+  const where = profile.remote ? 'remote India' : profile.location === ALL_INDIA ? ALL_INDIA : `${profile.location} India`
   try {
     const response = await fetchImpl('https://api.tavily.com/search', {
       method: 'POST',

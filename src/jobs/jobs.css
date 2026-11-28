@@ -240,3 +240,26 @@
 [data-resolved-theme="dark"] .jobs-mark:not([data-platform="company"]):not([data-platform="other"]) { background: #f3f5fb; }
 [data-resolved-theme="dark"] .job-pay.is-posted, [data-resolved-theme="dark"] .board-pay { color: #8ae0bd !important; }
 [data-resolved-theme="dark"] .top-apply:hover { background: #1c2540; }
+
+/* Location: country, state and "use my location", in one field of the search bar. */
+.jobs-field.is-location { gap: 6px; padding-right: 8px; }
+.jobs-country, .jobs-state { display: flex; align-items: center; min-width: 0; height: 100%; }
+.jobs-country { flex: 0 0 auto; }
+.jobs-country select { width: auto; padding-right: 4px; }
+.jobs-state { flex: 1 1 auto; padding-left: 8px; border-left: 1px solid #e6e9f1; }
+.jobs-locate { display: grid; flex: none; width: 34px; height: 34px; place-items: center; border: 0; border-radius: 10px; color: var(--accent); background: rgba(var(--accent-rgb), .08); cursor: pointer; transition: background-color .15s ease; }
+.jobs-locate:hover:not(:disabled) { background: rgba(var(--accent-rgb), .16); }
+.jobs-locate:focus-visible { outline: 3px solid rgba(var(--accent-rgb), .4); outline-offset: 1px; }
+.jobs-locate:disabled { opacity: .5; cursor: not-allowed; }
+.jobs-spinner.is-small { width: 14px; height: 14px; border-color: rgba(var(--accent-rgb), .25); border-top-color: var(--accent); }
+
+/* Worth a try: below the best matches, in a wrapping grid rather than a rail. */
+.jobs-worth { margin-top: 34px; padding-top: 24px; border-top: 1px dashed var(--jobs-line); }
+.jobs-worth > header h2 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -.02em; }
+.jobs-worth > header p { margin: 3px 0 0; color: var(--jobs-muted); font-size: 13.5px; }
+.jobs-worth-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 16px; }
+.job-card.is-worth { border-style: dashed; }
+.job-worth-reason { margin: 0; padding: 7px 10px; border-radius: 10px; color: var(--jobs-ink); background: rgba(var(--accent-rgb), .06); font-size: 12.5px; line-height: 1.45; }
+.jobs-worth-more { margin-top: 16px; }
+[data-resolved-theme="dark"] .jobs-state { border-color: #303a52; }
+[data-resolved-theme="dark"] .job-worth-reason { background: rgba(var(--accent-rgb), .14); }

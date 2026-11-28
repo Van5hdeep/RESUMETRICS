@@ -18,10 +18,10 @@ const resume = {
   experience: [{ role: 'Frontend Engineer', company: 'Acme', startDate: 'Jan 2023', endDate: 'Jan 2025', bullets: ['Built a React app'] }]
 }
 
-// Search profile: role from the headline, city from the location, skills from the resume, never contact details.
+// Search profile: role from the headline, the state from the location (Bengaluru → Karnataka), skills from the resume, never contact details.
 const profile = buildSearchProfile(resume, {}, new Date('2026-10-14'))
 assert.equal(profile.role, 'Frontend Developer')
-assert.equal(profile.location, 'Bengaluru')
+assert.equal(profile.location, 'Karnataka')
 assert.equal(profile.datePosted, 'month')
 assert.equal(profile.remote, false)
 assert.ok(profile.skills.includes('React') && profile.skills.includes('TypeScript'))
@@ -266,7 +266,7 @@ assert.deepEqual(extraQueries({ role: 'Pastry Chef', location: 'Goa', remote: tr
 calls.length = 0
 await search.fetchFresh({ ...profile, role: 'React Developer' })
 const asked = calls.map(call => new URL(call.url).searchParams.get('query')).filter(Boolean)
-assert.ok(asked.includes('Frontend Developer in Bengaluru') && asked.includes('Frontend Engineer in Bengaluru'), 'related titles are searched too')
+assert.ok(asked.includes('Frontend Developer in Karnataka') && asked.includes('Frontend Engineer in Karnataka'), 'related titles are searched too')
 const relatedDown = createJobSearch({ store: jobs, config, fetchImpl: async (url, init) => (String(url).includes('Frontend+Engineer') ? new Response('{}', { status: 500 }) : fakeFetch(url, init)) })
 assert.deepEqual((await relatedDown.fetchFresh({ ...profile, role: 'React Developer', location: 'Delhi' })).failures, [], 'a related search failing is not a board failure')
 
